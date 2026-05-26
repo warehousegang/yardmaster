@@ -1,5 +1,14 @@
 # Yardmaster
 
+<div align="center">
+
+<img src="assets/yardmaster.png" alt="Yardmaster Logo" width="260"/>
+
+# Yardmaster
+Declarative Kubernetes environment and workload management.
+
+</div>
+
 Yardmaster is a Kubernetes add-on for understanding, explaining, and improving cluster capacity decisions.
 
 Karpenter answers: "What nodes should exist right now so pending pods can run?"
