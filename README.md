@@ -5,7 +5,7 @@
 <img src="assets/yardmaster.png" alt="Yardmaster Logo" width="400"/>
 
 # Yardmaster
-###Declarative Kubernetes environment and workload management.
+Declarative Kubernetes environment and workload management.
 
 </div>
 
