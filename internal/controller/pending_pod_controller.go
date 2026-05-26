@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -74,6 +75,7 @@ func (r *PendingPodReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
+		Named("pending-pod").
 		For(&corev1.Pod{}).
 		Watches(&corev1.Node{}, handler.EnqueueRequestsFromMapFunc(r.requestsForAllPendingPods)).
 		Watches(&corev1.Event{}, handler.EnqueueRequestsFromMapFunc(r.requestsForEvent)).
@@ -114,46 +116,48 @@ func (r *PendingPodReconciler) requestsForEvent(_ context.Context, object client
 func (r *PendingPodReconciler) upsertFinding(ctx context.Context, pod *corev1.Pod, draft *analyzer.FindingDraft) error {
 	name := findingNameForPod(pod.Namespace, pod.Name)
 	key := types.NamespacedName{Namespace: r.FindingNamespace, Name: name}
-	now := metav1.Now()
 
-	var current yardv1alpha1.DispatchFinding
-	err := r.Get(ctx, key, &current)
-	if apierrors.IsNotFound(err) {
-		finding := yardv1alpha1.DispatchFinding{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: yardv1alpha1.GroupVersion.String(),
-				Kind:       "DispatchFinding",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: r.FindingNamespace,
-				Labels: map[string]string{
-					"yardmaster.dev/category": "scheduling",
-					"yardmaster.dev/subject":  "pod",
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		now := metav1.Now()
+		var current yardv1alpha1.DispatchFinding
+		err := r.Get(ctx, key, &current)
+		if apierrors.IsNotFound(err) {
+			finding := yardv1alpha1.DispatchFinding{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: yardv1alpha1.GroupVersion.String(),
+					Kind:       "DispatchFinding",
 				},
-			},
-			Spec: draft.Spec,
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: r.FindingNamespace,
+					Labels: map[string]string{
+						"yardmaster.dev/category": "scheduling",
+						"yardmaster.dev/subject":  "pod",
+					},
+				},
+				Spec: draft.Spec,
+			}
+			if err := r.Create(ctx, &finding); err != nil {
+				return err
+			}
+			finding.Status.FirstSeen = now
+			finding.Status.LastSeen = now
+			return r.Status().Update(ctx, &finding)
 		}
-		if err := r.Create(ctx, &finding); err != nil {
+		if err != nil {
 			return err
 		}
-		finding.Status.FirstSeen = now
-		finding.Status.LastSeen = now
-		return r.Status().Update(ctx, &finding)
-	}
-	if err != nil {
-		return err
-	}
 
-	current.Spec = draft.Spec
-	if err := r.Update(ctx, &current); err != nil {
-		return err
-	}
-	current.Status.LastSeen = now
-	if current.Status.FirstSeen.IsZero() {
-		current.Status.FirstSeen = now
-	}
-	return r.Status().Update(ctx, &current)
+		current.Spec = draft.Spec
+		if err := r.Update(ctx, &current); err != nil {
+			return err
+		}
+		current.Status.LastSeen = now
+		if current.Status.FirstSeen.IsZero() {
+			current.Status.FirstSeen = now
+		}
+		return r.Status().Update(ctx, &current)
+	})
 }
 
 func (r *PendingPodReconciler) deleteFinding(ctx context.Context, podNamespace, podName string) error {

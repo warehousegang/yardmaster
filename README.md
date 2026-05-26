@@ -346,8 +346,8 @@ Early local loop:
 kind create cluster --name yardmaster
 make install
 make run
-kubectl apply -f config/samples/
-kubectl yardmaster report
+make sample
+make report
 ```
 
 Current development loop:
@@ -356,9 +356,15 @@ Current development loop:
 make test
 make build
 make install
-go run ./cmd/yardmaster --finding-namespace=yardmaster-system
-kubectl apply -f config/samples/unschedulable-pod.yaml
-go run ./cmd/kubectl-yardmaster report
+make run
+make sample
+make report
+```
+
+Self-contained local smoke test:
+
+```bash
+make smoke-kind
 ```
 
 ## Open Questions

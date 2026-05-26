@@ -64,6 +64,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := (&yardcontroller.RequestCoverageReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		FindingNamespace: findingNamespace,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create request coverage controller")
+		os.Exit(1)
+	}
+
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		ctrl.Log.Error(err, "unable to set up health check")
 		os.Exit(1)
