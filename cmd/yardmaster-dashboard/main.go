@@ -48,5 +48,9 @@ func defaultKubeconfig() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, ".kube", "config")
+	path := filepath.Join(home, ".kube", "config")
+	if _, err := os.Stat(path); err != nil {
+		return ""
+	}
+	return path
 }

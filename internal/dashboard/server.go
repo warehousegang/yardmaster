@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -56,7 +57,7 @@ type Counts struct {
 }
 
 func New(kubeconfig, findingNamespace string) (*Server, error) {
-	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	restConfig, err := dashboardConfig(kubeconfig)
 	if err != nil {
 		return nil, err
 	}
@@ -76,6 +77,22 @@ func New(kubeconfig, findingNamespace string) (*Server, error) {
 		logoPath:         findLogoPath(),
 		template:         template.Must(template.New("dashboard").Parse(pageHTML)),
 	}, nil
+}
+
+func dashboardConfig(kubeconfig string) (*rest.Config, error) {
+	if kubeconfig != "" {
+		return clientcmd.BuildConfigFromFlags("", kubeconfig)
+	}
+
+	inCluster, err := rest.InClusterConfig()
+	if err == nil {
+		return inCluster, nil
+	}
+
+	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		clientcmd.NewDefaultClientConfigLoadingRules(),
+		&clientcmd.ConfigOverrides{},
+	).ClientConfig()
 }
 
 func (s *Server) Handler() http.Handler {

@@ -1,5 +1,6 @@
 BINARY_DIR ?= bin
 FINDING_NAMESPACE ?= yardmaster-system
+IMG ?= yardmaster:dev
 KIND_CLUSTER ?= yardmaster
 YARDMASTER ?= $(BINARY_DIR)/yardmaster
 KUBECTL_PLUGIN ?= $(BINARY_DIR)/kubectl-yardmaster
@@ -11,6 +12,10 @@ build:
 	go build -o $(YARDMASTER) ./cmd/yardmaster
 	go build -o $(KUBECTL_PLUGIN) ./cmd/kubectl-yardmaster
 	go build -o $(DASHBOARD) ./cmd/yardmaster-dashboard
+
+.PHONY: docker-build
+docker-build:
+	docker build -t $(IMG) .
 
 .PHONY: test
 test:
@@ -25,6 +30,18 @@ install:
 	kubectl apply -k config/crd
 	kubectl apply -k config/rbac
 
+.PHONY: deploy
+deploy: install
+	kubectl apply -k config/manager
+	kubectl set image deployment/yardmaster manager=$(IMG) -n $(FINDING_NAMESPACE)
+	kubectl apply -k config/dashboard
+	kubectl set image deployment/yardmaster-dashboard dashboard=$(IMG) -n $(FINDING_NAMESPACE)
+
+.PHONY: undeploy
+undeploy:
+	kubectl delete -k config/dashboard --ignore-not-found
+	kubectl delete -k config/manager --ignore-not-found
+
 .PHONY: sample
 sample:
 	kubectl label node --all karpenter.sh/nodepool=kind-general --overwrite
@@ -38,6 +55,10 @@ report:
 dashboard:
 	go run ./cmd/yardmaster-dashboard --finding-namespace=$(FINDING_NAMESPACE) --addr=:8088
 
+.PHONY: dashboard-port-forward
+dashboard-port-forward:
+	kubectl -n $(FINDING_NAMESPACE) port-forward svc/yardmaster-dashboard 8088:8088
+
 .PHONY: run
 run:
 	go run ./cmd/yardmaster --finding-namespace=$(FINDING_NAMESPACE)
@@ -45,6 +66,17 @@ run:
 .PHONY: kind-up
 kind-up:
 	kind get clusters | grep -qx "$(KIND_CLUSTER)" || kind create cluster --name "$(KIND_CLUSTER)"
+
+.PHONY: kind-load
+kind-load:
+	kind load docker-image $(IMG) --name "$(KIND_CLUSTER)"
+
+.PHONY: demo-kind
+demo-kind: kind-up docker-build kind-load deploy
+	kubectl -n $(FINDING_NAMESPACE) rollout status deployment/yardmaster --timeout=90s
+	kubectl -n $(FINDING_NAMESPACE) rollout status deployment/yardmaster-dashboard --timeout=90s
+	$(MAKE) sample
+	$(MAKE) report
 
 .PHONY: smoke-kind
 smoke-kind: kind-up install

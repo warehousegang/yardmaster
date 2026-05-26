@@ -1,38 +1,36 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: yardmaster
+  name: yardmaster-dashboard
   namespace: yardmaster-system
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: yardmaster
+      app.kubernetes.io/name: yardmaster-dashboard
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: yardmaster
+        app.kubernetes.io/name: yardmaster-dashboard
     spec:
       serviceAccountName: yardmaster
       containers:
-        - name: manager
+        - name: dashboard
           image: yardmaster:dev
           imagePullPolicy: IfNotPresent
           command:
-            - /yardmaster
+            - /yardmaster-dashboard
           args:
+            - --addr=:8088
             - --finding-namespace=yardmaster-system
-            - --ignored-request-namespaces=kube-node-lease,kube-public,kube-system,local-path-storage,yardmaster-system
           ports:
-            - name: metrics
-              containerPort: 8080
-            - name: health
-              containerPort: 8081
+            - name: http
+              containerPort: 8088
           livenessProbe:
             httpGet:
               path: /healthz
-              port: health
+              port: http
           readinessProbe:
             httpGet:
-              path: /readyz
-              port: health
+              path: /healthz
+              port: http

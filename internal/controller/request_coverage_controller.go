@@ -64,7 +64,7 @@ func (r *RequestCoverageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		r.Analyzer = analyzer.NewRequestCoverageAnalyzer()
 	}
 	if r.IgnoredNamespaces == nil {
-		r.IgnoredNamespaces = defaultIgnoredRequestNamespaces()
+		r.IgnoredNamespaces = DefaultIgnoredRequestNamespaces()
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
@@ -153,7 +153,7 @@ func requestFindingNameForPod(namespace, name string) string {
 	return fmt.Sprintf("%s-%s", base, hash)
 }
 
-func defaultIgnoredRequestNamespaces() map[string]struct{} {
+func DefaultIgnoredRequestNamespaces() map[string]struct{} {
 	return map[string]struct{}{
 		"kube-node-lease":    {},
 		"kube-public":        {},

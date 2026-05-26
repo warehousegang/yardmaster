@@ -378,6 +378,19 @@ make dashboard
 
 Then open `http://localhost:8088`.
 
+In-cluster demo:
+
+```bash
+make docker-build IMG=<registry>/yardmaster:<tag>
+docker push <registry>/yardmaster:<tag>
+make deploy IMG=<registry>/yardmaster:<tag>
+make dashboard-port-forward
+```
+
+See [docs/prod-demo.md](docs/prod-demo.md) before running Yardmaster against a
+real cluster. Do not run `make sample`, `make smoke-kind`, or `make demo-kind`
+against a real cluster; those targets create demo pods and labels.
+
 ## Open Questions
 
 - Should Yardmaster be purely advisory forever, or should it eventually support opt-in remediations?

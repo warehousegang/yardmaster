@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"os"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,11 +30,13 @@ func main() {
 	var metricsAddr string
 	var probeAddr string
 	var findingNamespace string
+	var ignoredRequestNamespaces string
 	var leaderElection bool
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.StringVar(&findingNamespace, "finding-namespace", yardcontroller.DefaultFindingNamespace, "Namespace where DispatchFinding resources are written.")
+	flag.StringVar(&ignoredRequestNamespaces, "ignored-request-namespaces", "kube-node-lease,kube-public,kube-system,local-path-storage,yardmaster-system", "Comma-separated namespaces ignored by request coverage findings.")
 	flag.BoolVar(&leaderElection, "leader-elect", false, "Enable leader election for controller manager.")
 	opts := zap.Options{Development: true}
 	opts.BindFlags(flag.CommandLine)
@@ -65,9 +68,10 @@ func main() {
 	}
 
 	if err := (&yardcontroller.RequestCoverageReconciler{
-		Client:           mgr.GetClient(),
-		Scheme:           mgr.GetScheme(),
-		FindingNamespace: findingNamespace,
+		Client:            mgr.GetClient(),
+		Scheme:            mgr.GetScheme(),
+		FindingNamespace:  findingNamespace,
+		IgnoredNamespaces: namespaceSet(ignoredRequestNamespaces),
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create request coverage controller")
 		os.Exit(1)
@@ -96,4 +100,16 @@ func main() {
 		ctrl.Log.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+func namespaceSet(value string) map[string]struct{} {
+	namespaces := make(map[string]struct{})
+	for _, namespace := range strings.Split(value, ",") {
+		namespace = strings.TrimSpace(namespace)
+		if namespace == "" {
+			continue
+		}
+		namespaces[namespace] = struct{}{}
+	}
+	return namespaces
 }
