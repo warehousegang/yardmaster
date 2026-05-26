@@ -386,6 +386,30 @@ const pageHTML = `<!doctype html>
         linear-gradient(90deg, rgba(85, 162, 255, .08) 1px, transparent 1px) 0 0 / 42px 42px,
         rgba(3, 12, 27, .46);
     }
+    .yard-empty {
+      min-height: 180px;
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      gap: 8px;
+      text-align: center;
+      color: var(--muted);
+    }
+    .yard-empty strong {
+      color: var(--ink);
+      font-size: 18px;
+    }
+    .yard-empty p {
+      max-width: 520px;
+      margin: 0;
+    }
+    code {
+      color: #cfe2ff;
+      background: rgba(85, 162, 255, .12);
+      border: 1px solid rgba(85, 162, 255, .22);
+      border-radius: 4px;
+      padding: 1px 5px;
+    }
     .track-lane {
       min-height: 92px;
       border: 1px solid rgba(85, 162, 255, .26);
@@ -411,7 +435,7 @@ const pageHTML = `<!doctype html>
       top: 13px;
       max-width: 118px;
       font-weight: 800;
-      overflow-wrap: anywhere;
+      overflow-wrap: break-word;
       color: #e9f3ff;
     }
     .track-detail {
@@ -432,7 +456,7 @@ const pageHTML = `<!doctype html>
       z-index: 1;
     }
     .cargo {
-      width: 78px;
+      width: 124px;
       min-height: 48px;
       padding: 7px 8px;
       border-radius: 4px;
@@ -609,7 +633,7 @@ const pageHTML = `<!doctype html>
         document.getElementById("warnings").textContent = "0";
         document.getElementById("requests").textContent = "0";
         document.getElementById("tracks").textContent = "0";
-        renderYard([]);
+        renderOfflineYard();
         renderFindings([]);
       }
     }
@@ -632,7 +656,13 @@ const pageHTML = `<!doctype html>
       const dispatchBox = document.getElementById("dispatchObjects");
       document.getElementById("dispatchCount").textContent = dispatch.length + " active";
 
-      const lanes = tracks.length ? tracks : [{ subject: "track/unassigned", summary: "No Track findings yet.", detail: "Start the controller to summarize node pools." }];
+      if (!tracks.length && !cargo.length) {
+        yard.innerHTML = "<div class=\"yard-empty\"><strong>No Yard objects yet</strong><p>Run <code>make smoke-kind</code> to create sample Track, Cargo, and Dispatch findings.</p></div>";
+        dispatchBox.innerHTML = "<div class=\"dispatch-card\"><strong>Dispatch clear</strong><p>No active scheduling blockers.</p></div>";
+        return;
+      }
+
+      const lanes = tracks.length ? tracks : [{ subject: "track/unassigned", summary: "Cargo without a matching Track summary.", detail: "" }];
       yard.innerHTML = lanes.map((track, index) => {
         const laneCargo = cargo.filter((_, cargoIndex) => cargoIndex % lanes.length === index);
         const blocks = laneCargo.length ? laneCargo.map(renderCargo).join("") : "<div class=\"cargo\">clear</div>";
@@ -649,6 +679,14 @@ const pageHTML = `<!doctype html>
           "<p>" + escapeHTML(finding.summary) + "</p>" +
         "</div>"
       ).join("") : "<div class=\"dispatch-card\"><strong>Dispatch clear</strong><p>No active scheduling blockers.</p></div>";
+    }
+
+    function renderOfflineYard() {
+      document.getElementById("dispatchCount").textContent = "0 active";
+      document.getElementById("yardObjects").innerHTML =
+        "<div class=\"yard-empty\"><strong>Cluster offline</strong><p>Start Docker Desktop, then run <code>make smoke-kind</code>. The dashboard will fill in once the Kubernetes API is reachable.</p></div>";
+      document.getElementById("dispatchObjects").innerHTML =
+        "<div class=\"dispatch-card\"><strong>Waiting for cluster</strong><p>Dispatch findings appear after Yardmaster can read DispatchFinding resources.</p></div>";
     }
 
     function renderCargo(finding) {
