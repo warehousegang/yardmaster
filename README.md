@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<img src="assets/yardmaster.png" alt="Yardmaster Logo" width="400"/>
+<img src="assets/yardmaster-logo.png" alt="Yardmaster Logo" width="400"/>
 
 # Yardmaster
 Declarative Kubernetes environment and workload management.
