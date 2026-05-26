@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -22,6 +24,7 @@ import (
 type Server struct {
 	client           client.Client
 	findingNamespace string
+	logoPath         string
 	template         *template.Template
 }
 
@@ -70,6 +73,7 @@ func New(kubeconfig, findingNamespace string) (*Server, error) {
 	return &Server{
 		client:           k8sClient,
 		findingNamespace: findingNamespace,
+		logoPath:         findLogoPath(),
 		template:         template.Must(template.New("dashboard").Parse(pageHTML)),
 	}, nil
 }
@@ -78,6 +82,7 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.handleIndex)
 	mux.HandleFunc("/api/findings", s.handleFindings)
+	mux.HandleFunc("/assets/logo", s.handleLogo)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	})
@@ -100,6 +105,15 @@ func (s *Server) handleFindings(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(response)
+}
+
+func (s *Server) handleLogo(w http.ResponseWriter, r *http.Request) {
+	if s.logoPath == "" {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-cache")
+	http.ServeFile(w, r, s.logoPath)
 }
 
 func (s *Server) fetchFindings(ctx context.Context) (FindingsResponse, error) {
@@ -209,6 +223,23 @@ func timeLabel(value time.Time) string {
 	return value.Local().Format("15:04:05")
 }
 
+func findLogoPath() string {
+	candidates := []string{
+		filepath.Join("assets", "yardmaster-logo.png"),
+		filepath.Join("assets", "yardmaster.png"),
+		filepath.Join(os.Getenv("HOME"), "Downloads", "yardmaster.png"),
+	}
+	for _, candidate := range candidates {
+		if candidate == "" {
+			continue
+		}
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	return ""
+}
+
 const pageHTML = `<!doctype html>
 <html lang="en">
 <head>
@@ -217,21 +248,29 @@ const pageHTML = `<!doctype html>
   <title>Yardmaster</title>
   <style>
     :root {
-      color-scheme: light;
-      --ink: #17211b;
-      --muted: #66736b;
-      --line: #d9dfd9;
-      --panel: #ffffff;
-      --wash: #f4f6f2;
-      --accent: #2f6f4f;
-      --warning: #a85720;
-      --info: #26659b;
+      color-scheme: dark;
+      --ink: #f4f8ff;
+      --muted: #99abc4;
+      --line: rgba(120, 163, 255, .22);
+      --panel: rgba(9, 23, 45, .86);
+      --panel-strong: rgba(12, 34, 69, .94);
+      --wash: #06101f;
+      --blue: #2677ff;
+      --blue-soft: #55a2ff;
+      --cyan: #26d3ff;
+      --warning: #d48a35;
+      --critical: #e45b76;
+      --info: #2d85ff;
+      --ok: #2fc78a;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
+      min-height: 100vh;
       color: var(--ink);
-      background: var(--wash);
+      background:
+        radial-gradient(circle at 48% -18%, rgba(43, 119, 255, .28), transparent 34%),
+        linear-gradient(180deg, #071324 0%, #06101f 42%, #08182b 100%);
       font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     header {
@@ -240,44 +279,69 @@ const pageHTML = `<!doctype html>
       justify-content: space-between;
       gap: 24px;
       padding: 18px 28px;
-      background: #23372a;
-      color: #f6faf5;
-      border-bottom: 1px solid #17251c;
+      background: rgba(4, 12, 26, .88);
+      border-bottom: 1px solid var(--line);
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      backdrop-filter: blur(16px);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+    .brand img {
+      width: 52px;
+      height: 52px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid rgba(85, 162, 255, .32);
+      background: #020712;
     }
     h1 {
       margin: 0;
-      font-size: 20px;
-      font-weight: 700;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+    .tagline {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 13px;
     }
     main {
-      max-width: 1180px;
+      max-width: 1280px;
       margin: 0 auto;
-      padding: 22px 24px 40px;
+      padding: 22px 24px 44px;
     }
     .meta {
       display: flex;
+      justify-content: flex-end;
       gap: 18px;
       flex-wrap: wrap;
-      color: #d4ddd4;
+      color: var(--muted);
       font-size: 13px;
     }
     .stats {
       display: grid;
-      grid-template-columns: repeat(4, minmax(140px, 1fr));
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
       gap: 12px;
       margin-bottom: 18px;
     }
-    .stat, .finding {
+    .stat, .finding, .yard-board {
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 8px;
+      box-shadow: 0 18px 54px rgba(0, 0, 0, .22);
     }
     .stat {
       padding: 14px 16px;
     }
     .stat b {
       display: block;
-      font-size: 24px;
+      font-size: 26px;
       line-height: 1.1;
       margin-bottom: 4px;
     }
@@ -285,12 +349,127 @@ const pageHTML = `<!doctype html>
       color: var(--muted);
       font-size: 13px;
     }
+    .yard-board {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 18px;
+      padding: 18px;
+      margin-bottom: 22px;
+      background:
+        linear-gradient(135deg, rgba(16, 45, 86, .92), rgba(4, 16, 34, .94)),
+        var(--panel-strong);
+    }
+    .yard-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .yard-title h2, .section h2 {
+      margin: 0;
+      font-size: 16px;
+    }
+    .yard-title span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .yard-map {
+      min-height: 300px;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+      padding: 14px;
+      border: 1px solid rgba(85, 162, 255, .18);
+      border-radius: 8px;
+      background:
+        linear-gradient(90deg, rgba(85, 162, 255, .08) 1px, transparent 1px) 0 0 / 42px 42px,
+        rgba(3, 12, 27, .46);
+    }
+    .track-lane {
+      min-height: 92px;
+      border: 1px solid rgba(85, 162, 255, .26);
+      border-radius: 8px;
+      background: linear-gradient(90deg, rgba(16, 44, 86, .92), rgba(7, 24, 52, .82));
+      position: relative;
+      overflow: hidden;
+      padding: 12px 14px 12px 146px;
+    }
+    .track-lane:before, .track-lane:after {
+      content: "";
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      height: 2px;
+      background: rgba(194, 218, 255, .45);
+    }
+    .track-lane:before { top: 29px; }
+    .track-lane:after { bottom: 29px; }
+    .track-name {
+      position: absolute;
+      left: 14px;
+      top: 13px;
+      max-width: 118px;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+      color: #e9f3ff;
+    }
+    .track-detail {
+      position: absolute;
+      left: 14px;
+      bottom: 13px;
+      max-width: 118px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .cargo-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      min-height: 66px;
+      position: relative;
+      z-index: 1;
+    }
+    .cargo {
+      width: 78px;
+      min-height: 48px;
+      padding: 7px 8px;
+      border-radius: 4px;
+      background: linear-gradient(180deg, #1f7bff, #0d43b5);
+      border: 1px solid rgba(151, 197, 255, .62);
+      box-shadow: inset 8px 0 0 rgba(255, 255, 255, .10);
+      font-size: 11px;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+    .cargo.warning {
+      background: linear-gradient(180deg, #f0a24b, #ad5f19);
+      border-color: rgba(255, 211, 154, .78);
+    }
+    .dispatch-panel {
+      display: grid;
+      align-content: start;
+      gap: 12px;
+    }
+    .dispatch-card {
+      border: 1px solid rgba(85, 162, 255, .23);
+      border-radius: 8px;
+      padding: 12px;
+      background: rgba(4, 14, 31, .66);
+    }
+    .dispatch-card strong {
+      display: block;
+      margin-bottom: 5px;
+      overflow-wrap: anywhere;
+    }
+    .dispatch-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
     .section {
       margin-top: 22px;
-    }
-    .section h2 {
-      margin: 0 0 10px;
-      font-size: 16px;
     }
     .list {
       display: grid;
@@ -307,12 +486,12 @@ const pageHTML = `<!doctype html>
       margin-bottom: 8px;
     }
     .subject {
-      font-weight: 700;
+      font-weight: 800;
       overflow-wrap: anywhere;
     }
     .summary {
       margin: 4px 0 0;
-      color: var(--ink);
+      color: #dce9ff;
     }
     .detail {
       margin: 8px 0 0;
@@ -325,13 +504,13 @@ const pageHTML = `<!doctype html>
       padding: 0 9px;
       border-radius: 999px;
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 800;
       text-transform: uppercase;
       letter-spacing: .04em;
       white-space: nowrap;
     }
-    .warning { color: #fff; background: var(--warning); }
-    .critical { color: #fff; background: #8f1d2c; }
+    .warning { color: #071324; background: var(--warning); }
+    .critical { color: #fff; background: var(--critical); }
     .info { color: #fff; background: var(--info); }
     ul {
       margin: 10px 0 0 18px;
@@ -350,22 +529,33 @@ const pageHTML = `<!doctype html>
       display: none;
       margin-bottom: 14px;
       padding: 12px 14px;
-      border: 1px solid #d7a08c;
-      background: #fff1ec;
-      color: #7b341f;
+      border: 1px solid rgba(228, 91, 118, .5);
+      background: rgba(79, 19, 36, .72);
+      color: #ffdce4;
       border-radius: 8px;
     }
-    @media (max-width: 760px) {
+    @media (max-width: 900px) {
       header { align-items: flex-start; flex-direction: column; }
       main { padding: 16px; }
       .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .yard-board { grid-template-columns: 1fr; }
+      .track-lane { padding-left: 14px; padding-top: 82px; }
+      .track-name, .track-detail { max-width: calc(100% - 28px); }
+      .track-detail { top: 42px; bottom: auto; }
       .finding-head { flex-direction: column; }
+      .meta { justify-content: flex-start; }
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>Yardmaster</h1>
+    <div class="brand">
+      <img src="/assets/logo" alt="Yardmaster logo">
+      <div>
+        <h1>Yardmaster</h1>
+        <div class="tagline">Capacity interpreter for Kubernetes yards</div>
+      </div>
+    </div>
     <div class="meta">
       <span>Namespace: {{ .Namespace }}</span>
       <span id="updated">Loading...</span>
@@ -375,9 +565,25 @@ const pageHTML = `<!doctype html>
     <div id="error" class="error"></div>
     <section class="stats">
       <div class="stat"><b id="total">0</b><span>Total findings</span></div>
-      <div class="stat"><b id="warnings">0</b><span>Warnings</span></div>
-      <div class="stat"><b id="requests">0</b><span>Request findings</span></div>
-      <div class="stat"><b id="tracks">0</b><span>Node pools</span></div>
+      <div class="stat"><b id="warnings">0</b><span>Dispatch warnings</span></div>
+      <div class="stat"><b id="requests">0</b><span>Cargo request gaps</span></div>
+      <div class="stat"><b id="tracks">0</b><span>Tracks</span></div>
+    </section>
+    <section class="yard-board">
+      <div>
+        <div class="yard-title">
+          <h2>The Yard</h2>
+          <span>Tracks and Cargo</span>
+        </div>
+        <div id="yardObjects" class="yard-map"></div>
+      </div>
+      <aside class="dispatch-panel">
+        <div class="yard-title">
+          <h2>Dispatch</h2>
+          <span id="dispatchCount">0 active</span>
+        </div>
+        <div id="dispatchObjects"></div>
+      </aside>
     </section>
     <div id="content" class="empty">Loading findings...</div>
   </main>
@@ -398,6 +604,13 @@ const pageHTML = `<!doctype html>
       } catch (err) {
         error.textContent = "Could not load findings: " + err.message;
         error.style.display = "block";
+        document.getElementById("updated").textContent = "Cluster offline";
+        document.getElementById("total").textContent = "0";
+        document.getElementById("warnings").textContent = "0";
+        document.getElementById("requests").textContent = "0";
+        document.getElementById("tracks").textContent = "0";
+        renderYard([]);
+        renderFindings([]);
       }
     }
 
@@ -407,9 +620,44 @@ const pageHTML = `<!doctype html>
       document.getElementById("warnings").textContent = data.counts.warnings;
       document.getElementById("requests").textContent = data.counts.requests;
       document.getElementById("tracks").textContent = data.counts.tracks;
+      renderYard(data.findings || []);
+      renderFindings(data.findings || []);
+    }
 
+    function renderYard(findings) {
+      const tracks = findings.filter((finding) => finding.category === "tracks");
+      const cargo = findings.filter((finding) => finding.category === "requests");
+      const dispatch = findings.filter((finding) => finding.category === "scheduling");
+      const yard = document.getElementById("yardObjects");
+      const dispatchBox = document.getElementById("dispatchObjects");
+      document.getElementById("dispatchCount").textContent = dispatch.length + " active";
+
+      const lanes = tracks.length ? tracks : [{ subject: "track/unassigned", summary: "No Track findings yet.", detail: "Start the controller to summarize node pools." }];
+      yard.innerHTML = lanes.map((track, index) => {
+        const laneCargo = cargo.filter((_, cargoIndex) => cargoIndex % lanes.length === index);
+        const blocks = laneCargo.length ? laneCargo.map(renderCargo).join("") : "<div class=\"cargo\">clear</div>";
+        return "<div class=\"track-lane\">" +
+          "<div class=\"track-name\">" + escapeHTML(track.subject) + "</div>" +
+          "<div class=\"track-detail\">" + escapeHTML(track.summary) + "</div>" +
+          "<div class=\"cargo-row\">" + blocks + "</div>" +
+        "</div>";
+      }).join("");
+
+      dispatchBox.innerHTML = dispatch.length ? dispatch.map((finding) =>
+        "<div class=\"dispatch-card\">" +
+          "<strong>" + escapeHTML(finding.subject) + "</strong>" +
+          "<p>" + escapeHTML(finding.summary) + "</p>" +
+        "</div>"
+      ).join("") : "<div class=\"dispatch-card\"><strong>Dispatch clear</strong><p>No active scheduling blockers.</p></div>";
+    }
+
+    function renderCargo(finding) {
+      return "<div class=\"cargo warning\">" + escapeHTML(shortName(finding.subject)) + "</div>";
+    }
+
+    function renderFindings(findings) {
       const content = document.getElementById("content");
-      if (!data.findings.length) {
+      if (!findings.length) {
         content.className = "empty";
         content.textContent = "No active findings.";
         return;
@@ -417,7 +665,7 @@ const pageHTML = `<!doctype html>
 
       content.className = "";
       const groups = new Map();
-      for (const finding of data.findings) {
+      for (const finding of findings) {
         if (!groups.has(finding.category)) groups.set(finding.category, []);
         groups.get(finding.category).push(finding);
       }
@@ -429,9 +677,9 @@ const pageHTML = `<!doctype html>
       });
 
       content.innerHTML = categories.map((category) => {
-        const findings = groups.get(category);
-        const title = findings[0].categoryTitle;
-        return "<section class=\"section\"><h2>" + escapeHTML(title) + "</h2><div class=\"list\">" + findings.map(renderFinding).join("") + "</div></section>";
+        const grouped = groups.get(category);
+        const title = grouped[0].categoryTitle;
+        return "<section class=\"section\"><h2>" + escapeHTML(title) + "</h2><div class=\"list\">" + grouped.map(renderFinding).join("") + "</div></section>";
       }).join("");
     }
 
@@ -450,6 +698,11 @@ const pageHTML = `<!doctype html>
         detail +
         recommendations +
       "</article>";
+    }
+
+    function shortName(subject) {
+      const parts = String(subject || "").split("/");
+      return parts[parts.length - 1] || subject;
     }
 
     refresh();
