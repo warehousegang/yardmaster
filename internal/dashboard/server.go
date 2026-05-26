@@ -411,40 +411,37 @@ const pageHTML = `<!doctype html>
       padding: 1px 5px;
     }
     .track-lane {
-      min-height: 92px;
+      min-height: 112px;
+      display: grid;
+      grid-template-columns: minmax(190px, 240px) minmax(0, 1fr);
+      gap: 18px;
+      align-items: center;
       border: 1px solid rgba(85, 162, 255, .26);
       border-radius: 8px;
       background: linear-gradient(90deg, rgba(16, 44, 86, .92), rgba(7, 24, 52, .82));
       position: relative;
       overflow: hidden;
-      padding: 12px 14px 12px 146px;
+      padding: 14px 16px;
     }
     .track-lane:before, .track-lane:after {
       content: "";
       position: absolute;
-      left: 16px;
+      left: 274px;
       right: 16px;
       height: 2px;
       background: rgba(194, 218, 255, .45);
     }
-    .track-lane:before { top: 29px; }
-    .track-lane:after { bottom: 29px; }
+    .track-lane:before { top: 37px; }
+    .track-lane:after { bottom: 37px; }
     .track-name {
-      position: absolute;
-      left: 14px;
-      top: 13px;
-      max-width: 118px;
       font-weight: 800;
       overflow-wrap: break-word;
       color: #e9f3ff;
     }
     .track-detail {
-      position: absolute;
-      left: 14px;
-      bottom: 13px;
-      max-width: 118px;
       color: var(--muted);
       font-size: 12px;
+      margin-top: 8px;
     }
     .cargo-row {
       display: flex;
@@ -563,9 +560,8 @@ const pageHTML = `<!doctype html>
       main { padding: 16px; }
       .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .yard-board { grid-template-columns: 1fr; }
-      .track-lane { padding-left: 14px; padding-top: 82px; }
-      .track-name, .track-detail { max-width: calc(100% - 28px); }
-      .track-detail { top: 42px; bottom: auto; }
+      .track-lane { grid-template-columns: 1fr; align-items: start; }
+      .track-lane:before, .track-lane:after { left: 16px; }
       .finding-head { flex-direction: column; }
       .meta { justify-content: flex-start; }
     }
