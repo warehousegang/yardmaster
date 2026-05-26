@@ -25,6 +25,7 @@ install:
 
 .PHONY: sample
 sample:
+	kubectl label node --all karpenter.sh/nodepool=kind-general --overwrite
 	kubectl apply -k config/samples
 
 .PHONY: report

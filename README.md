@@ -367,6 +367,9 @@ Self-contained local smoke test:
 make smoke-kind
 ```
 
+The sample target labels local nodes with `karpenter.sh/nodepool=kind-general`
+so the Track summary analyzer can demonstrate Node Pool grouping in `kind`.
+
 ## Open Questions
 
 - Should Yardmaster be purely advisory forever, or should it eventually support opt-in remediations?

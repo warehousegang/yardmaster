@@ -84,7 +84,7 @@ func printReport(namespace string, findings []yardv1alpha1.DispatchFinding) {
 	sort.Slice(findings, func(i, j int) bool {
 		left, right := findings[i], findings[j]
 		if left.Spec.Category != right.Spec.Category {
-			return left.Spec.Category < right.Spec.Category
+			return categoryRank(left.Spec.Category) < categoryRank(right.Spec.Category)
 		}
 		if left.Spec.Severity != right.Spec.Severity {
 			return severityRank(left.Spec.Severity) > severityRank(right.Spec.Severity)
@@ -96,7 +96,7 @@ func printReport(namespace string, findings []yardv1alpha1.DispatchFinding) {
 	for _, finding := range findings {
 		if finding.Spec.Category != currentCategory {
 			currentCategory = finding.Spec.Category
-			fmt.Println(title(currentCategory))
+			fmt.Println(categoryTitle(currentCategory))
 		}
 
 		fmt.Printf("  %-8s %s\n", finding.Spec.Severity, subjectLabel(finding))
@@ -119,11 +119,32 @@ func subjectLabel(finding yardv1alpha1.DispatchFinding) string {
 	return subject.Namespace + "/" + subject.Name
 }
 
-func title(value string) string {
-	if value == "" {
+func categoryTitle(category string) string {
+	switch category {
+	case "scheduling":
+		return "Scheduling"
+	case "requests":
+		return "Requests"
+	case "tracks":
+		return "Node Pools"
+	case "":
 		return "General"
+	default:
+		return strings.ToUpper(category[:1]) + category[1:]
 	}
-	return strings.ToUpper(value[:1]) + value[1:]
+}
+
+func categoryRank(category string) int {
+	switch category {
+	case "scheduling":
+		return 10
+	case "requests":
+		return 20
+	case "tracks":
+		return 30
+	default:
+		return 100
+	}
 }
 
 func severityRank(severity yardv1alpha1.FindingSeverity) int {
