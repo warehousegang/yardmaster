@@ -12,9 +12,9 @@ const (
 )
 
 var (
-	GroupVersion = schema.GroupVersion{Group: Group, Version: Version}
+	GroupVersion  = schema.GroupVersion{Group: Group, Version: Version}
 	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
-	AddToScheme = SchemeBuilder.AddToScheme
+	AddToScheme   = SchemeBuilder.AddToScheme
 )
 
 func addKnownTypes(scheme *runtime.Scheme) error {

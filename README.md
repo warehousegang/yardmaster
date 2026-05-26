@@ -5,7 +5,7 @@
 <img src="assets/yardmaster.png" alt="Yardmaster Logo" width="400"/>
 
 # Yardmaster
-Declarative Kubernetes environment and workload management.
+###Declarative Kubernetes environment and workload management.
 
 </div>
 
@@ -348,6 +348,17 @@ make install
 make run
 kubectl apply -f config/samples/
 kubectl yardmaster report
+```
+
+Current development loop:
+
+```bash
+make test
+make build
+make install
+go run ./cmd/yardmaster --finding-namespace=yardmaster-system
+kubectl apply -f config/samples/unschedulable-pod.yaml
+go run ./cmd/kubectl-yardmaster report
 ```
 
 ## Open Questions

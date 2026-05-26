@@ -8,8 +8,8 @@ import (
 type FindingSeverity string
 
 const (
-	FindingSeverityInfo    FindingSeverity = "info"
-	FindingSeverityWarning FindingSeverity = "warning"
+	FindingSeverityInfo     FindingSeverity = "info"
+	FindingSeverityWarning  FindingSeverity = "warning"
 	FindingSeverityCritical FindingSeverity = "critical"
 )
 
