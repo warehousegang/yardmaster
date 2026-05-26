@@ -3,12 +3,14 @@ FINDING_NAMESPACE ?= yardmaster-system
 KIND_CLUSTER ?= yardmaster
 YARDMASTER ?= $(BINARY_DIR)/yardmaster
 KUBECTL_PLUGIN ?= $(BINARY_DIR)/kubectl-yardmaster
+DASHBOARD ?= $(BINARY_DIR)/yardmaster-dashboard
 
 .PHONY: build
 build:
 	mkdir -p $(BINARY_DIR)
 	go build -o $(YARDMASTER) ./cmd/yardmaster
 	go build -o $(KUBECTL_PLUGIN) ./cmd/kubectl-yardmaster
+	go build -o $(DASHBOARD) ./cmd/yardmaster-dashboard
 
 .PHONY: test
 test:
@@ -31,6 +33,10 @@ sample:
 .PHONY: report
 report:
 	go run ./cmd/kubectl-yardmaster --finding-namespace=$(FINDING_NAMESPACE) report
+
+.PHONY: dashboard
+dashboard:
+	go run ./cmd/yardmaster-dashboard --finding-namespace=$(FINDING_NAMESPACE) --addr=:8088
 
 .PHONY: run
 run:

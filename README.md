@@ -370,6 +370,14 @@ make smoke-kind
 The sample target labels local nodes with `karpenter.sh/nodepool=kind-general`
 so the Track summary analyzer can demonstrate Node Pool grouping in `kind`.
 
+Local dashboard:
+
+```bash
+make dashboard
+```
+
+Then open `http://localhost:8088`.
+
 ## Open Questions
 
 - Should Yardmaster be purely advisory forever, or should it eventually support opt-in remediations?
