@@ -21,6 +21,16 @@ Kubernetes can tell you that a pod is pending. Karpenter can decide whether new 
 
 Yardmaster is advisory by design. It does not provision nodes, mutate workloads, or replace Karpenter. It gives platform teams a readable layer between scheduler symptoms and capacity decisions.
 
+## Dashboard Preview
+
+![Yardmaster dashboard showing Busynow capacity findings](docs/images/dashboard-yard.png)
+
+The Yard view maps cluster capacity into Tracks, Cargo, and Dispatch so operators can quickly see capacity shape and active findings.
+
+![Yardmaster detail drawer showing a workload request finding](docs/images/dashboard-detail-drawer.png)
+
+The detail drawer keeps the operator path concrete: workload owner, related pod, reason, and recommendations in one place.
+
 ## What It Does
 
 Yardmaster currently runs as a Kubernetes controller, a `kubectl`-style CLI, and a local or in-cluster dashboard.
