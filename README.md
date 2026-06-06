@@ -5,334 +5,207 @@
 <img src="assets/yardmaster-logo.png" alt="Yardmaster Logo" width="400"/>
 
 # Yardmaster
-Declarative Kubernetes environment and workload management.
+Capacity intelligence for Kubernetes yards.
 
 </div>
 
-Yardmaster is a Kubernetes add-on for understanding, explaining, and improving cluster capacity decisions.
+Yardmaster is a Kubernetes capacity interpreter. It watches workloads, nodes, events, and capacity groups, then turns raw cluster state into clear operational findings.
 
-Karpenter answers: "What nodes should exist right now so pending pods can run?"
+Kubernetes can tell you that a pod is pending. Karpenter can decide whether new nodes should exist. Yardmaster explains the capacity story around those signals:
 
-Yardmaster answers: "Why is capacity unhealthy, what will happen next, and what should we change before it hurts?"
+- what is blocked
+- what workload owns the problem
+- which Track of capacity is involved
+- whether requests, labels, taints, or node pool shape are contributing
+- what an operator checks or changes next
 
-The first version should be a practical Kubernetes controller and CLI that watches workloads, pods, nodes, events, and autoscaling signals, then produces clear recommendations about scheduling pressure, waste, risky disruption, and node pool fit.
+Yardmaster is advisory by design. It does not provision nodes, mutate workloads, or replace Karpenter. It gives platform teams a readable layer between scheduler symptoms and capacity decisions.
 
-## Vision
+## What It Does
 
-Kubernetes gives teams a huge amount of state, but very little narrative.
+Yardmaster currently runs as a Kubernetes controller, a `kubectl`-style CLI, and a local or in-cluster dashboard.
 
-When workloads are pending, over-provisioned, stuck behind pod disruption budgets, or packed onto the wrong node shapes, operators usually have to stitch together answers from `kubectl describe`, cloud consoles, metrics dashboards, events, and tribal knowledge.
+It can:
 
-Yardmaster should become the cluster's capacity interpreter:
+- detect pending workloads and explain likely scheduling blockers
+- identify containers missing CPU or memory requests
+- group ready nodes into capacity Tracks using common node pool labels
+- summarize requested versus allocatable CPU and memory by Track
+- resolve pod findings back to owner workloads such as Deployments, StatefulSets, DaemonSets, Jobs, and CronJobs
+- write findings as `DispatchFinding` custom resources
+- show findings in the CLI and dashboard as Yard, Track, Cargo, and Dispatch objects
 
-- explain why pods are pending
-- identify underused or poorly shaped node pools
-- detect workloads that cannot safely move
-- recommend better requests, limits, tolerations, affinities, and node pool shapes
-- forecast predictable capacity pressure from cron jobs or scheduled workloads
-- optionally apply safe, explicitly configured remediations
-
-The tool should start as advisory. Automation can come later.
+The current controller writes only Yardmaster-owned CRDs. It reads cluster state and emits explanations.
 
 ## Core Concepts
 
 ### Yard
 
-A Yard represents the capacity surface Yardmaster watches. In early versions, this can simply mean one Kubernetes cluster.
-
-Later, a Yard could describe a logical tenant, environment, namespace group, or fleet of clusters.
+A Yard is the Kubernetes capacity surface Yardmaster watches. In the current implementation, a Yard maps to one Kubernetes cluster.
 
 ### Track
 
-A Track represents a pool of capacity, usually a Kubernetes node pool, Karpenter NodePool, managed node group, or autoscaling group.
-
-Yardmaster should reason about each Track's:
-
-- instance families or node shapes
-- labels and taints
-- zones
-- allocatable CPU, memory, pods, GPUs, and ephemeral storage
-- utilization
-- pending workload compatibility
-- disruption and consolidation risk
-
-### Cargo
-
-Cargo represents workloads that need capacity:
-
-- Pods
-- Deployments
-- StatefulSets
-- DaemonSets
-- Jobs
-- CronJobs
-
-Yardmaster should inspect Cargo requests, limits, placement constraints, priority, disruption budgets, restart behavior, and scheduling failures.
-
-### Dispatch
-
-A Dispatch is Yardmaster's recommendation.
-
-Examples:
-
-- "This pod is pending because all compatible nodes are blocked by taints."
-- "This namespace requests 96 CPU but uses 11 CPU at p95 over 7 days."
-- "This node pool cannot consolidate because three workloads have strict zone affinity."
-- "This CronJob will collide with the nightly batch window and exceed current spare capacity."
-- "Add a general-purpose node pool with this shape."
-- "Lower memory requests for this workload from 4Gi to 2Gi."
-
-## MVP
-
-The MVP should be intentionally small and useful.
-
-Build a controller that watches core Kubernetes resources and emits human-readable capacity findings.
-
-### MVP Features
-
-- Watch Pods, Nodes, Deployments, StatefulSets, DaemonSets, Jobs, CronJobs, PodDisruptionBudgets, and Events.
-- Detect pending pods and explain the most likely scheduling blocker.
-- Detect node pools by grouping nodes with common labels.
-- Summarize requested vs allocatable CPU and memory by namespace and node pool.
-- Identify workloads with missing CPU or memory requests.
-- Identify workloads whose placement constraints make them hard to schedule.
-- Emit findings as Kubernetes custom resources.
-- Provide a CLI or `kubectl` plugin command to print a readable report.
-
-### Not In MVP
-
-- Do not provision nodes.
-- Do not mutate workloads automatically.
-- Do not replace Karpenter, Cluster Autoscaler, metrics-server, Prometheus, or cloud cost tools.
-- Do not require cloud provider integration on day one.
-
-## Architecture
-
-Yardmaster should follow the standard Kubernetes controller pattern.
-
-```text
-Kubernetes API
-      |
-      v
-Shared Informers / Watches
-      |
-      v
-Cluster State Model
-      |
-      v
-Analyzers
-      |
-      v
-Dispatch Findings
-      |
-      +--> CRDs
-      +--> CLI report
-      +--> Kubernetes Events
-      +--> optional Prometheus metrics
-```
-
-## Proposed CRDs
-
-Start with one CRD. Add more only when the model earns it.
-
-### DispatchFinding
-
-Represents one capacity, scheduling, or configuration finding.
-
-Example shape:
-
-```yaml
-apiVersion: yardmaster.dev/v1alpha1
-kind: DispatchFinding
-metadata:
-  name: pending-api-7f4c9d
-  namespace: yardmaster-system
-spec:
-  severity: warning
-  category: scheduling
-  subject:
-    apiVersion: v1
-    kind: Pod
-    namespace: default
-    name: api-7f4c9d9d8b-x2m5k
-  summary: Pod cannot schedule on any current node pool.
-  detail: Pod requires label workload=api, but no ready nodes have that label.
-  recommendations:
-    - Add compatible node capacity.
-    - Relax nodeSelector workload=api if it is no longer required.
-status:
-  firstSeen: "2026-05-25T00:00:00Z"
-  lastSeen: "2026-05-25T00:00:00Z"
-```
-
-Later CRDs could include:
-
-- `Yard`
-- `Track`
-- `CapacityPlan`
-- `DispatchPolicy`
-
-## Analyzer Ideas
-
-### Pending Pod Analyzer
-
-Goal: explain why a pod is unschedulable.
-
-Inputs:
-
-- Pod status conditions
-- Scheduler events
-- Node labels
-- Node taints
-- Pod nodeSelector
-- Pod affinity and anti-affinity
-- Pod tolerations
-- resource requests
-- volume constraints
-
-Output:
-
-- one or more `DispatchFinding` objects
-
-### Request Coverage Analyzer
-
-Goal: find workloads missing CPU or memory requests.
-
-Why it matters:
-
-Kubernetes scheduling depends on requests. Missing requests make capacity planning and bin packing unreliable.
-
-### Node Pool Fit Analyzer
-
-Goal: group nodes into rough node pools and identify workload compatibility.
-
-Early grouping heuristic:
+A Track is a pool of capacity. Yardmaster groups nodes into Tracks using labels such as:
 
 - `karpenter.sh/nodepool`
 - `eks.amazonaws.com/nodegroup`
 - `cloud.google.com/gke-nodepool`
 - `kubernetes.azure.com/agentpool`
-- fallback to instance type plus zone plus major labels
+- fallback shape labels such as instance type, zone, OS, and architecture
 
-### Waste Analyzer
+Tracks help answer: "Where is capacity available, and what kind of workloads is it serving?"
 
-Goal: compare requested capacity to allocatable capacity.
+### Cargo
 
-MVP can use requests only. Later versions can integrate metrics from Prometheus or metrics-server.
+Cargo is the workload that needs capacity. Yardmaster promotes pod-level findings to the owning workload when possible:
 
-## Implementation Direction
+- Deployment
+- StatefulSet
+- DaemonSet
+- Job
+- CronJob
+- Pod fallback when no owner is available
 
-Recommended language: Go.
+This keeps reports useful at the level humans operate: app or workload first, exact pod second.
 
-Recommended libraries:
+### Dispatch
 
-- `controller-runtime`
-- `client-go`
-- `cobra` for CLI commands
-- `kustomize` for manifests
-- `helm` later, once install shape stabilizes
+Dispatch is the scheduling or capacity guidance Yardmaster produces.
 
-Suggested repo layout:
+Examples:
+
+- "This workload cannot schedule because no ready node matches its selector."
+- "This Deployment has containers without CPU or memory requests."
+- "This Track has 3 ready nodes and 42 scheduled pods."
+- "This workload is blocked by untolerated taints."
+
+## Architecture
 
 ```text
-yardmaster/
-  README.md
-  go.mod
-  cmd/
-    yardmaster/
-      main.go
-    kubectl-yardmaster/
-      main.go
-  api/
-    v1alpha1/
-      dispatchfinding_types.go
-  internal/
-    controller/
-      dispatchfinding_controller.go
-    analyzer/
-      pending_pods.go
-      request_coverage.go
-      node_pool_fit.go
-    model/
-      cluster_snapshot.go
-  config/
-    crd/
-    rbac/
-    manager/
-    samples/
-  charts/
-  docs/
+Kubernetes API
+      |
+      v
+Yardmaster Controller
+      |
+      +--> Pending workload analyzer
+      +--> Request coverage analyzer
+      +--> Track summary analyzer
+      |
+      v
+DispatchFinding CRDs
+      |
+      +--> kubectl-yardmaster report
+      +--> Yardmaster dashboard
 ```
 
-## First Build Milestones
+The controller watches core Kubernetes resources and periodically reconciles findings. Findings live in the `yardmaster-system` namespace by default.
 
-1. Scaffold a Go controller-runtime project.
-2. Define the `DispatchFinding` CRD.
-3. Build read-only watches for Pods, Nodes, and Events.
-4. Implement the pending pod analyzer.
-5. Write findings back as `DispatchFinding` resources.
-6. Add a CLI command:
+## DispatchFinding
 
-```bash
-kubectl yardmaster report
+`DispatchFinding` is the main Yardmaster API object. It represents one scheduling, capacity, or workload-configuration finding.
+
+Example:
+
+```yaml
+apiVersion: yardmaster.dev/v1alpha1
+kind: DispatchFinding
+metadata:
+  name: requests-pod-default-api-6f775cf4f6-x87rv
+  namespace: yardmaster-system
+spec:
+  severity: info
+  category: requests
+  subject:
+    apiVersion: apps/v1
+    kind: Deployment
+    namespace: default
+    name: api
+  related:
+    - apiVersion: v1
+      kind: Pod
+      namespace: default
+      name: api-6f775cf4f6-x87rv
+  summary: Workload has containers without CPU or memory requests.
+  detail: "Missing requests: container api cpu, container api memory."
+  recommendations:
+    - Set CPU and memory requests for each container so scheduling reflects actual capacity needs.
+    - Use recent workload usage metrics to choose requests before relying on this pod for capacity planning.
+status:
+  firstSeen: "2026-06-06T19:31:13Z"
+  lastSeen: "2026-06-06T19:31:13Z"
 ```
 
-7. Test against a local `kind` cluster with deliberately unschedulable pods.
+The `subject` is the object Yardmaster wants the operator to think about. The `related` list preserves the lower-level Kubernetes objects involved in the finding.
 
-## Example User Experience
+## CLI
+
+Build the binaries:
 
 ```bash
-$ kubectl yardmaster report
+make build
+```
 
-Yardmaster report for cluster kind-yard
+Print a readable report:
+
+```bash
+bin/kubectl-yardmaster --finding-namespace=yardmaster-system report
+```
+
+Example output:
+
+```text
+Yardmaster report from namespace yardmaster-system
 
 Scheduling
-  warning  default/api-7f4c9d9d8b-x2m5k
-           Pod cannot schedule on any current node pool.
-           Reason: requires node label workload=api, but no ready nodes match.
+  warning  deployment/default/worker
+           Workload cannot schedule on any ready node because its node selector does not match.
+           Reason: No ready schedulable nodes match nodeSelector terms: workload=batch.
+           Related: pod/default/worker-77bc9c94d6-zxk8p
+           Recommendation: Add compatible node capacity with the required labels.
+           Recommendation: Relax the nodeSelector if it is no longer required.
 
 Requests
-  info     default/worker
-           Container worker has no memory request.
-           Recommendation: set memory requests so scheduling reflects actual capacity needs.
-
-Node Pools
-  info     nodepool/general
-           71% CPU requested, 38% memory requested.
+  info     deployment/default/api
+           Workload has containers without CPU or memory requests.
+           Reason: Missing requests: container api cpu, container api memory.
+           Related: pod/default/api-6f775cf4f6-x87rv
+           Recommendation: Set CPU and memory requests for each container so scheduling reflects actual capacity needs.
 ```
 
-## Design Principles
+## Dashboard
 
-- Be explanatory before being automatic.
-- Prefer concrete findings over vague scores.
-- Make every recommendation traceable to Kubernetes state.
-- Work without cloud credentials first.
-- Integrate with Karpenter, do not compete with it.
-- Keep permissions read-only except for Yardmaster's own CRDs and events.
-- Be useful from the CLI even before dashboards exist.
+Run the local dashboard:
 
-## Relationship To Karpenter
+```bash
+make dashboard
+```
 
-Karpenter provisions and disrupts nodes based on pending pods and node pool policy.
+Open:
 
-Yardmaster should complement Karpenter by explaining:
+```text
+http://localhost:8088
+```
 
-- why Karpenter did or did not help
-- which workloads are hard to place
-- which requests distort scheduling
-- which node pools are mismatched to the workload mix
-- which disruption constraints prevent consolidation
+The dashboard renders the cluster as a Yard:
 
-Possible future Karpenter integrations:
+- Tracks are capacity lanes.
+- Cargo blocks are workload findings.
+- Dispatch cards are active scheduling blockers.
+- Finding cards show grouped details.
 
-- read `NodePool` and `NodeClaim` resources
-- explain Karpenter events
-- detect conflicting workload constraints and NodePool requirements
-- recommend NodePool changes
+Cargo, Dispatch, Track labels, and finding cards are clickable. The detail drawer shows summary, reason, severity, related pods, and recommendations.
+
+For an in-cluster dashboard:
+
+```bash
+make dashboard-port-forward
+```
+
+Then open `http://localhost:8088`.
 
 ## Local Development
 
-Expected developer tools:
+Required tools:
 
 - Go
 - Docker
@@ -340,67 +213,114 @@ Expected developer tools:
 - `kind`
 - `kustomize`
 
-Early local loop:
-
-```bash
-kind create cluster --name yardmaster
-make install
-make run
-make sample
-make report
-```
-
-Current development loop:
+Run tests and build:
 
 ```bash
 make test
 make build
-make install
-make run
-make sample
-make report
 ```
 
-Self-contained local smoke test:
+Run a self-contained local smoke test:
 
 ```bash
 make smoke-kind
 ```
 
-The sample target labels local nodes with `karpenter.sh/nodepool=kind-general`
-so the Track summary analyzer can demonstrate Node Pool grouping in `kind`.
+The local demo path uses a `kind` cluster named `yardmaster`. Demo targets now switch to and/or require the `kind-yardmaster` context before creating sample pods or labeling nodes.
 
-Local dashboard:
+The protected demo targets are:
 
 ```bash
-make dashboard
+make sample
+make smoke-kind
+make demo-kind
 ```
 
-Then open `http://localhost:8088`.
+These targets are for local `kind` development only. They create sample pods and label demo nodes so Track grouping is visible.
 
-In-cluster demo:
+## Deploying To A Cluster
+
+Build and publish an image:
 
 ```bash
 make docker-build IMG=<registry>/yardmaster:<tag>
 docker push <registry>/yardmaster:<tag>
+```
+
+Deploy:
+
+```bash
 make deploy IMG=<registry>/yardmaster:<tag>
+```
+
+Wait for rollout:
+
+```bash
+kubectl -n yardmaster-system rollout status deployment/yardmaster
+kubectl -n yardmaster-system rollout status deployment/yardmaster-dashboard
+```
+
+Open the dashboard locally:
+
+```bash
 make dashboard-port-forward
 ```
 
-See [docs/prod-demo.md](docs/prod-demo.md) before running Yardmaster against a
-real cluster. Do not run `make sample`, `make smoke-kind`, or `make demo-kind`
-against a real cluster; those targets create demo pods and labels.
+Before running Yardmaster against a real cluster, read [docs/prod-demo.md](docs/prod-demo.md).
 
-## Open Questions
+Do not run demo/sample targets against a real cluster. They are guarded now, but the intended real-cluster path is `make deploy`, not `make sample`, `make smoke-kind`, or `make demo-kind`.
 
-- Should Yardmaster be purely advisory forever, or should it eventually support opt-in remediations?
-- Should findings live in one namespace or next to the affected workload?
-- Should the CLI read directly from cluster state, CRDs, or both?
-- Should metrics integration use Prometheus first or metrics-server first?
-- Should Karpenter support be optional or first-class from the beginning?
+## Relationship To Karpenter
+
+Karpenter is a node provisioning and disruption system. It decides what capacity should exist so workloads can run.
+
+Yardmaster is an interpretation layer around capacity and scheduling state. It explains:
+
+- why a workload is hard to place
+- whether requests make scheduling unreliable
+- which Track is serving current workloads
+- which labels, taints, or selectors are blocking placement
+- where to inspect Karpenter, node groups, or workload constraints next
+
+The two tools are complementary. Karpenter changes capacity. Yardmaster explains capacity decisions.
+
+Future Karpenter-aware work includes:
+
+- reading `NodePool` and `NodeClaim` resources
+- explaining Karpenter provisioning failures
+- detecting conflicts between workload constraints and NodePool requirements
+- recommending NodePool or workload changes
+
+## Design Principles
+
+- Explain before automating.
+- Prefer concrete findings over opaque scores.
+- Keep recommendations traceable to Kubernetes state.
+- Work without cloud credentials.
+- Integrate with Karpenter instead of competing with it.
+- Keep permissions limited to reading cluster state and writing Yardmaster findings.
+- Make the CLI and dashboard useful to operators during real incidents.
+
+## Development Direction
+
+Near-term work:
+
+- richer dashboard drilldowns for related Kubernetes objects
+- Karpenter `NodePool` and `NodeClaim` awareness
+- namespace and workload filters
+- owner/team attribution
+- release automation and versioned images
+- Helm or another clean install path once the deployment surface stabilizes
+
+Longer-term work:
+
+- Prometheus or metrics-server integration for request tuning
+- disruption and consolidation analysis
+- scheduled workload capacity forecasting
+- explicitly configured remediation policies
 
 ## Name
 
-Yardmaster coordinates movement and capacity in a rail yard. That maps neatly to Kubernetes clusters: workloads are cargo, node pools are tracks, and scheduling pressure is the dispatch problem.
+A yardmaster coordinates movement and capacity in a rail yard. Yardmaster applies that operating model to Kubernetes: workloads are Cargo, node pools are Tracks, and scheduling pressure is the Dispatch problem.
 
-The name should feel operational, practical, and a little fun without becoming cute at the expense of usefulness.
+The name is practical, operational, and a little memorable. That is the point.
