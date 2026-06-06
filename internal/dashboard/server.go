@@ -35,6 +35,7 @@ type Finding struct {
 	Category        string   `json:"category"`
 	CategoryTitle   string   `json:"categoryTitle"`
 	Subject         string   `json:"subject"`
+	Related         []string `json:"related"`
 	Summary         string   `json:"summary"`
 	Detail          string   `json:"detail"`
 	Recommendations []string `json:"recommendations"`
@@ -163,6 +164,7 @@ func (s *Server) fetchFindings(ctx context.Context) (FindingsResponse, error) {
 			Category:        item.Spec.Category,
 			CategoryTitle:   categoryTitle(item.Spec.Category),
 			Subject:         subjectLabel(item),
+			Related:         relatedLabels(item.Spec.Related),
 			Summary:         item.Spec.Summary,
 			Detail:          item.Spec.Detail,
 			Recommendations: item.Spec.Recommendations,
@@ -187,11 +189,18 @@ func (s *Server) fetchFindings(ctx context.Context) (FindingsResponse, error) {
 }
 
 func subjectLabel(finding yardv1alpha1.DispatchFinding) string {
-	subject := finding.Spec.Subject
-	if subject.Namespace == "" {
-		return strings.ToLower(subject.Kind) + "/" + subject.Name
+	return yardv1alpha1.SubjectLabel(finding.Spec.Subject)
+}
+
+func relatedLabels(subjects []yardv1alpha1.DispatchFindingSubject) []string {
+	if len(subjects) == 0 {
+		return nil
 	}
-	return subject.Namespace + "/" + subject.Name
+	labels := make([]string, 0, len(subjects))
+	for _, subject := range subjects {
+		labels = append(labels, yardv1alpha1.SubjectLabel(subject))
+	}
+	return labels
 }
 
 func categoryTitle(category string) string {
@@ -535,6 +544,22 @@ const pageHTML = `<!doctype html>
       margin: 8px 0 0;
       color: var(--muted);
     }
+    .related {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    .related span {
+      max-width: 100%;
+      padding: 3px 7px;
+      color: #cfe2ff;
+      background: rgba(85, 162, 255, .12);
+      border: 1px solid rgba(85, 162, 255, .22);
+      border-radius: 4px;
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
     .pill {
       display: inline-flex;
       align-items: center;
@@ -738,6 +763,8 @@ const pageHTML = `<!doctype html>
       const recs = finding.recommendations || [];
       const recommendations = recs.length ? "<ul>" + recs.map((rec) => "<li>" + escapeHTML(rec) + "</li>").join("") + "</ul>" : "";
       const detail = finding.detail ? "<p class=\"detail\">" + escapeHTML(finding.detail) + "</p>" : "";
+      const related = (finding.related || []).length ?
+        "<div class=\"related\">" + finding.related.map((item) => "<span>" + escapeHTML(item) + "</span>").join("") + "</div>" : "";
       return "<article class=\"finding\">" +
         "<div class=\"finding-head\">" +
           "<div>" +
@@ -747,6 +774,7 @@ const pageHTML = `<!doctype html>
           "<span class=\"pill " + escapeHTML(finding.severity) + "\">" + escapeHTML(finding.severity) + "</span>" +
         "</div>" +
         detail +
+        related +
         recommendations +
       "</article>";
     }

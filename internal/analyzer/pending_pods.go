@@ -33,34 +33,34 @@ func (a *PendingPodAnalyzer) AnalyzePod(pod *corev1.Pod, nodes []corev1.Node, ev
 
 	readyNodes := readySchedulableNodes(nodes)
 	if len(readyNodes) == 0 {
-		return findingForPod(pod, "Pod cannot schedule because no ready schedulable nodes are available.", detail, []string{
+		return findingForPod(pod, "Workload cannot schedule because no ready schedulable nodes are available.", detail, []string{
 			"Add or recover ready node capacity.",
 			"Check cluster autoscaler or Karpenter events for provisioning failures.",
 		})
 	}
 
 	if missing := missingNodeSelectorTerms(pod, readyNodes); len(missing) > 0 {
-		return findingForPod(pod, "Pod cannot schedule on any ready node because its node selector does not match.", fmt.Sprintf("No ready schedulable nodes match nodeSelector terms: %s.", strings.Join(missing, ", ")), []string{
+		return findingForPod(pod, "Workload cannot schedule on any ready node because its node selector does not match.", fmt.Sprintf("No ready schedulable nodes match nodeSelector terms: %s.", strings.Join(missing, ", ")), []string{
 			"Add compatible node capacity with the required labels.",
 			"Relax the nodeSelector if it is no longer required.",
 		})
 	}
 
 	if taints := blockingTaints(pod, readyNodes); len(taints) > 0 {
-		return findingForPod(pod, "Pod cannot schedule on compatible nodes because of untolerated taints.", fmt.Sprintf("Ready schedulable nodes are blocked by untolerated taints: %s.", strings.Join(taints, ", ")), []string{
+		return findingForPod(pod, "Workload cannot schedule on compatible nodes because of untolerated taints.", fmt.Sprintf("Ready schedulable nodes are blocked by untolerated taints: %s.", strings.Join(taints, ", ")), []string{
 			"Add a matching toleration if this workload is allowed on those nodes.",
 			"Schedule the workload onto a node pool without the blocking taints.",
 		})
 	}
 
 	if shortfalls := resourceShortfalls(pod, readyNodes); len(shortfalls) > 0 {
-		return findingForPod(pod, "Pod cannot schedule because no ready node has enough free requested capacity.", fmt.Sprintf("Requested resources exceed currently available allocatable capacity on ready schedulable nodes: %s.", strings.Join(shortfalls, ", ")), []string{
+		return findingForPod(pod, "Workload cannot schedule because no ready node has enough free requested capacity.", fmt.Sprintf("Requested resources exceed currently available allocatable capacity on ready schedulable nodes: %s.", strings.Join(shortfalls, ", ")), []string{
 			"Add node capacity that can fit this pod's requests.",
 			"Reduce resource requests if they are higher than the workload needs.",
 		})
 	}
 
-	return findingForPod(pod, "Pod is pending and Kubernetes reports it as unschedulable.", detail, []string{
+	return findingForPod(pod, "Workload is pending and Kubernetes reports it as unschedulable.", detail, []string{
 		"Inspect scheduler events for affinity, topology, volume, or quota constraints.",
 		"Compare the pod placement rules with the labels and taints on ready nodes.",
 	})

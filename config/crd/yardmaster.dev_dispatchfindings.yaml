@@ -51,6 +51,23 @@ spec:
                       type: string
                     name:
                       type: string
+                related:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - apiVersion
+                      - kind
+                      - name
+                    properties:
+                      apiVersion:
+                        type: string
+                      kind:
+                        type: string
+                      namespace:
+                        type: string
+                      name:
+                        type: string
                 summary:
                   type: string
                 detail:

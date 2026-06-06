@@ -1,6 +1,8 @@
 package v1alpha1
 
 import (
+	"strings"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -21,12 +23,13 @@ type DispatchFindingSubject struct {
 }
 
 type DispatchFindingSpec struct {
-	Severity        FindingSeverity        `json:"severity"`
-	Category        string                 `json:"category"`
-	Subject         DispatchFindingSubject `json:"subject"`
-	Summary         string                 `json:"summary"`
-	Detail          string                 `json:"detail,omitempty"`
-	Recommendations []string               `json:"recommendations,omitempty"`
+	Severity        FindingSeverity          `json:"severity"`
+	Category        string                   `json:"category"`
+	Subject         DispatchFindingSubject   `json:"subject"`
+	Related         []DispatchFindingSubject `json:"related,omitempty"`
+	Summary         string                   `json:"summary"`
+	Detail          string                   `json:"detail,omitempty"`
+	Recommendations []string                 `json:"recommendations,omitempty"`
 }
 
 type DispatchFindingStatus struct {
@@ -56,4 +59,15 @@ func SubjectFromPod(pod *corev1.Pod) DispatchFindingSubject {
 		Namespace:  pod.Namespace,
 		Name:       pod.Name,
 	}
+}
+
+func SubjectLabel(subject DispatchFindingSubject) string {
+	kind := strings.ToLower(subject.Kind)
+	if kind == "" {
+		kind = "object"
+	}
+	if subject.Namespace == "" {
+		return kind + "/" + subject.Name
+	}
+	return kind + "/" + subject.Namespace + "/" + subject.Name
 }

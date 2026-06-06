@@ -57,6 +57,7 @@ func (r *PendingPodReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if finding == nil {
 		return ctrl.Result{}, r.deleteFinding(ctx, pod.Namespace, pod.Name)
 	}
+	promoteFindingToWorkload(ctx, r.Client, &pod, &finding.Spec)
 
 	if err := r.upsertFinding(ctx, &pod, finding); err != nil {
 		return ctrl.Result{}, err
@@ -132,7 +133,7 @@ func (r *PendingPodReconciler) upsertFinding(ctx context.Context, pod *corev1.Po
 					Namespace: r.FindingNamespace,
 					Labels: map[string]string{
 						"yardmaster.dev/category": "scheduling",
-						"yardmaster.dev/subject":  "pod",
+						"yardmaster.dev/subject":  sanitizeDNSLabel(draft.Spec.Subject.Kind),
 					},
 				},
 				Spec: draft.Spec,
@@ -149,6 +150,11 @@ func (r *PendingPodReconciler) upsertFinding(ctx context.Context, pod *corev1.Po
 		}
 
 		current.Spec = draft.Spec
+		if current.Labels == nil {
+			current.Labels = make(map[string]string)
+		}
+		current.Labels["yardmaster.dev/category"] = "scheduling"
+		current.Labels["yardmaster.dev/subject"] = sanitizeDNSLabel(draft.Spec.Subject.Kind)
 		if err := r.Update(ctx, &current); err != nil {
 			return err
 		}

@@ -30,7 +30,7 @@ func (a *RequestCoverageAnalyzer) AnalyzePod(pod *corev1.Pod) *FindingDraft {
 			Severity: yardv1alpha1.FindingSeverityInfo,
 			Category: "requests",
 			Subject:  yardv1alpha1.SubjectFromPod(pod),
-			Summary:  "Pod has containers without CPU or memory requests.",
+			Summary:  "Workload has containers without CPU or memory requests.",
 			Detail:   fmt.Sprintf("Missing requests: %s.", strings.Join(missing, ", ")),
 			Recommendations: []string{
 				"Set CPU and memory requests for each container so scheduling reflects actual capacity needs.",

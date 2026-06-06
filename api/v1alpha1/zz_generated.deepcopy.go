@@ -17,6 +17,10 @@ func (in *DispatchFindingSubject) DeepCopy() *DispatchFindingSubject {
 
 func (in *DispatchFindingSpec) DeepCopyInto(out *DispatchFindingSpec) {
 	*out = *in
+	if in.Related != nil {
+		out.Related = make([]DispatchFindingSubject, len(in.Related))
+		copy(out.Related, in.Related)
+	}
 	if in.Recommendations != nil {
 		out.Recommendations = make([]string, len(in.Recommendations))
 		copy(out.Recommendations, in.Recommendations)

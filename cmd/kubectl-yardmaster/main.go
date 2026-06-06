@@ -104,6 +104,9 @@ func printReport(namespace string, findings []yardv1alpha1.DispatchFinding) {
 		if finding.Spec.Detail != "" {
 			fmt.Printf("           Reason: %s\n", finding.Spec.Detail)
 		}
+		for _, related := range finding.Spec.Related {
+			fmt.Printf("           Related: %s\n", yardv1alpha1.SubjectLabel(related))
+		}
 		for _, recommendation := range finding.Spec.Recommendations {
 			fmt.Printf("           Recommendation: %s\n", recommendation)
 		}
@@ -112,11 +115,7 @@ func printReport(namespace string, findings []yardv1alpha1.DispatchFinding) {
 }
 
 func subjectLabel(finding yardv1alpha1.DispatchFinding) string {
-	subject := finding.Spec.Subject
-	if subject.Namespace == "" {
-		return strings.ToLower(subject.Kind) + "/" + subject.Name
-	}
-	return subject.Namespace + "/" + subject.Name
+	return yardv1alpha1.SubjectLabel(finding.Spec.Subject)
 }
 
 func categoryTitle(category string) string {

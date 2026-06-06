@@ -47,6 +47,7 @@ func (r *RequestCoverageReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	if finding == nil {
 		return ctrl.Result{}, r.deleteFinding(ctx, pod.Namespace, pod.Name)
 	}
+	promoteFindingToWorkload(ctx, r.Client, &pod, &finding.Spec)
 
 	if err := r.upsertFinding(ctx, &pod, finding); err != nil {
 		return ctrl.Result{}, err
@@ -97,7 +98,7 @@ func (r *RequestCoverageReconciler) upsertFinding(ctx context.Context, pod *core
 					Namespace: r.FindingNamespace,
 					Labels: map[string]string{
 						"yardmaster.dev/category": "requests",
-						"yardmaster.dev/subject":  "pod",
+						"yardmaster.dev/subject":  sanitizeDNSLabel(draft.Spec.Subject.Kind),
 					},
 				},
 				Spec: draft.Spec,
@@ -114,6 +115,11 @@ func (r *RequestCoverageReconciler) upsertFinding(ctx context.Context, pod *core
 		}
 
 		current.Spec = draft.Spec
+		if current.Labels == nil {
+			current.Labels = make(map[string]string)
+		}
+		current.Labels["yardmaster.dev/category"] = "requests"
+		current.Labels["yardmaster.dev/subject"] = sanitizeDNSLabel(draft.Spec.Subject.Kind)
 		if err := r.Update(ctx, &current); err != nil {
 			return err
 		}
