@@ -479,6 +479,7 @@ const pageHTML = `<!doctype html>
       z-index: 1;
     }
     .cargo {
+      appearance: none;
       width: 124px;
       min-height: 48px;
       padding: 7px 8px;
@@ -489,6 +490,9 @@ const pageHTML = `<!doctype html>
       font-size: 11px;
       font-weight: 700;
       overflow-wrap: anywhere;
+      color: #f4f8ff;
+      text-align: left;
+      cursor: pointer;
     }
     .cargo.warning {
       background: linear-gradient(180deg, #f0a24b, #ad5f19);
@@ -500,10 +504,16 @@ const pageHTML = `<!doctype html>
       gap: 12px;
     }
     .dispatch-card {
+      width: 100%;
       border: 1px solid rgba(85, 162, 255, .23);
       border-radius: 8px;
       padding: 12px;
       background: rgba(4, 14, 31, .66);
+      color: inherit;
+      text-align: left;
+    }
+    button.dispatch-card {
+      cursor: pointer;
     }
     .dispatch-card strong {
       display: block;
@@ -524,6 +534,17 @@ const pageHTML = `<!doctype html>
     }
     .finding {
       padding: 14px 16px;
+    }
+    .finding[role="button"], .track-name[data-finding] {
+      cursor: pointer;
+    }
+    .cargo:hover, button.dispatch-card:hover, .finding[role="button"]:hover, .track-name[data-finding]:hover {
+      border-color: rgba(85, 162, 255, .62);
+      box-shadow: 0 0 0 1px rgba(85, 162, 255, .16), 0 18px 54px rgba(0, 0, 0, .22);
+    }
+    .cargo:focus-visible, button.dispatch-card:focus-visible, .finding[role="button"]:focus-visible, .track-name[data-finding]:focus-visible, .drawer-close:focus-visible {
+      outline: 2px solid var(--cyan);
+      outline-offset: 3px;
     }
     .finding-head {
       display: flex;
@@ -597,6 +618,79 @@ const pageHTML = `<!doctype html>
       color: #ffdce4;
       border-radius: 8px;
     }
+    .drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      display: none;
+      justify-content: flex-end;
+      background: rgba(1, 7, 17, .58);
+      z-index: 20;
+    }
+    .drawer-backdrop.open {
+      display: flex;
+    }
+    .drawer {
+      width: min(460px, 100vw);
+      height: 100vh;
+      overflow: auto;
+      padding: 22px;
+      background: rgba(5, 15, 32, .98);
+      border-left: 1px solid var(--line);
+      box-shadow: -24px 0 70px rgba(0, 0, 0, .36);
+    }
+    .drawer-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+    .drawer-title {
+      margin: 0;
+      font-size: 18px;
+      overflow-wrap: anywhere;
+    }
+    .drawer-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 9px;
+    }
+    .drawer-meta span {
+      padding: 4px 7px;
+      border: 1px solid rgba(85, 162, 255, .22);
+      border-radius: 4px;
+      color: #cfe2ff;
+      background: rgba(85, 162, 255, .10);
+      font-size: 12px;
+    }
+    .drawer-close {
+      appearance: none;
+      width: 34px;
+      height: 34px;
+      flex: 0 0 auto;
+      border: 1px solid rgba(85, 162, 255, .28);
+      border-radius: 8px;
+      color: var(--ink);
+      background: rgba(85, 162, 255, .10);
+      cursor: pointer;
+      font-size: 22px;
+      line-height: 1;
+    }
+    .drawer-section {
+      margin-top: 18px;
+    }
+    .drawer-section h3 {
+      margin: 0 0 8px;
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .drawer-section p {
+      margin: 0;
+      color: #dce9ff;
+    }
     @media (max-width: 900px) {
       header { align-items: flex-start; flex-direction: column; }
       main { padding: 16px; }
@@ -606,6 +700,7 @@ const pageHTML = `<!doctype html>
       .track-lane:before, .track-lane:after { left: 16px; }
       .finding-head { flex-direction: column; }
       .meta { justify-content: flex-start; }
+      .drawer { width: 100vw; }
     }
   </style>
 </head>
@@ -649,8 +744,36 @@ const pageHTML = `<!doctype html>
     </section>
     <div id="content" class="empty">Loading findings...</div>
   </main>
+  <div id="drawerBackdrop" class="drawer-backdrop" aria-hidden="true">
+    <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+      <div class="drawer-head">
+        <div>
+          <h2 id="drawerTitle" class="drawer-title"></h2>
+          <div id="drawerMeta" class="drawer-meta"></div>
+        </div>
+        <button id="drawerClose" class="drawer-close" type="button" aria-label="Close detail panel">&times;</button>
+      </div>
+      <div class="drawer-section">
+        <h3>Summary</h3>
+        <p id="drawerSummary"></p>
+      </div>
+      <div id="drawerDetailSection" class="drawer-section">
+        <h3>Reason</h3>
+        <p id="drawerDetail"></p>
+      </div>
+      <div id="drawerRelatedSection" class="drawer-section">
+        <h3>Related</h3>
+        <div id="drawerRelated" class="related"></div>
+      </div>
+      <div id="drawerRecommendationSection" class="drawer-section">
+        <h3>Recommendations</h3>
+        <ul id="drawerRecommendations"></ul>
+      </div>
+    </aside>
+  </div>
   <script>
     const categoryOrder = ["scheduling", "requests", "tracks"];
+    let currentFindings = [];
     const escapeHTML = (value) => String(value || "").replace(/[&<>"']/g, (ch) => ({
       "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"
     }[ch]));
@@ -664,6 +787,7 @@ const pageHTML = `<!doctype html>
         error.style.display = "none";
         render(data);
       } catch (err) {
+        currentFindings = [];
         error.textContent = "Could not load findings: " + err.message;
         error.style.display = "block";
         document.getElementById("updated").textContent = "Cluster offline";
@@ -677,13 +801,14 @@ const pageHTML = `<!doctype html>
     }
 
     function render(data) {
+      currentFindings = data.findings || [];
       document.getElementById("updated").textContent = "Updated: " + new Date(data.updatedAt).toLocaleTimeString();
       document.getElementById("total").textContent = data.counts.total;
       document.getElementById("warnings").textContent = data.counts.warnings;
       document.getElementById("requests").textContent = data.counts.requests;
       document.getElementById("tracks").textContent = data.counts.tracks;
-      renderYard(data.findings || []);
-      renderFindings(data.findings || []);
+      renderYard(currentFindings);
+      renderFindings(currentFindings);
     }
 
     function renderYard(findings) {
@@ -704,18 +829,19 @@ const pageHTML = `<!doctype html>
       yard.innerHTML = lanes.map((track, index) => {
         const laneCargo = cargo.filter((_, cargoIndex) => cargoIndex % lanes.length === index);
         const blocks = laneCargo.length ? laneCargo.map(renderCargo).join("") : "<div class=\"cargo\">clear</div>";
+        const trackAttrs = track.name ? " data-finding=\"" + escapeHTML(track.name) + "\" tabindex=\"0\" role=\"button\"" : "";
         return "<div class=\"track-lane\">" +
-          "<div class=\"track-name\">" + escapeHTML(track.subject) + "</div>" +
+          "<div class=\"track-name\"" + trackAttrs + ">" + escapeHTML(track.subject) + "</div>" +
           "<div class=\"track-detail\">" + escapeHTML(track.summary) + "</div>" +
           "<div class=\"cargo-row\">" + blocks + "</div>" +
         "</div>";
       }).join("");
 
       dispatchBox.innerHTML = dispatch.length ? dispatch.map((finding) =>
-        "<div class=\"dispatch-card\">" +
+        "<button class=\"dispatch-card\" type=\"button\" data-finding=\"" + escapeHTML(finding.name) + "\">" +
           "<strong>" + escapeHTML(finding.subject) + "</strong>" +
           "<p>" + escapeHTML(finding.summary) + "</p>" +
-        "</div>"
+        "</button>"
       ).join("") : "<div class=\"dispatch-card\"><strong>Dispatch clear</strong><p>No active scheduling blockers.</p></div>";
     }
 
@@ -728,7 +854,7 @@ const pageHTML = `<!doctype html>
     }
 
     function renderCargo(finding) {
-      return "<div class=\"cargo warning\">" + escapeHTML(shortName(finding.subject)) + "</div>";
+      return "<button class=\"cargo warning\" type=\"button\" data-finding=\"" + escapeHTML(finding.name) + "\">" + escapeHTML(shortName(finding.subject)) + "</button>";
     }
 
     function renderFindings(findings) {
@@ -765,7 +891,7 @@ const pageHTML = `<!doctype html>
       const detail = finding.detail ? "<p class=\"detail\">" + escapeHTML(finding.detail) + "</p>" : "";
       const related = (finding.related || []).length ?
         "<div class=\"related\">" + finding.related.map((item) => "<span>" + escapeHTML(item) + "</span>").join("") + "</div>" : "";
-      return "<article class=\"finding\">" +
+      return "<article class=\"finding\" role=\"button\" tabindex=\"0\" data-finding=\"" + escapeHTML(finding.name) + "\">" +
         "<div class=\"finding-head\">" +
           "<div>" +
             "<div class=\"subject\">" + escapeHTML(finding.subject) + "</div>" +
@@ -783,6 +909,65 @@ const pageHTML = `<!doctype html>
       const parts = String(subject || "").split("/");
       return parts[parts.length - 1] || subject;
     }
+
+    function openFinding(name) {
+      const finding = currentFindings.find((item) => item.name === name);
+      if (!finding) return;
+
+      document.getElementById("drawerTitle").textContent = finding.subject;
+      document.getElementById("drawerSummary").textContent = finding.summary || "";
+      document.getElementById("drawerMeta").innerHTML = [
+        finding.categoryTitle || finding.category,
+        finding.severity,
+        finding.lastSeen ? "last seen " + finding.lastSeen : ""
+      ].filter(Boolean).map((item) => "<span>" + escapeHTML(item) + "</span>").join("");
+
+      const detailSection = document.getElementById("drawerDetailSection");
+      detailSection.style.display = finding.detail ? "block" : "none";
+      document.getElementById("drawerDetail").textContent = finding.detail || "";
+
+      const related = finding.related || [];
+      const relatedSection = document.getElementById("drawerRelatedSection");
+      relatedSection.style.display = related.length ? "block" : "none";
+      document.getElementById("drawerRelated").innerHTML = related.map((item) => "<span>" + escapeHTML(item) + "</span>").join("");
+
+      const recs = finding.recommendations || [];
+      const recSection = document.getElementById("drawerRecommendationSection");
+      recSection.style.display = recs.length ? "block" : "none";
+      document.getElementById("drawerRecommendations").innerHTML = recs.map((rec) => "<li>" + escapeHTML(rec) + "</li>").join("");
+
+      const backdrop = document.getElementById("drawerBackdrop");
+      backdrop.classList.add("open");
+      backdrop.setAttribute("aria-hidden", "false");
+      document.getElementById("drawerClose").focus();
+    }
+
+    function closeDrawer() {
+      const backdrop = document.getElementById("drawerBackdrop");
+      backdrop.classList.remove("open");
+      backdrop.setAttribute("aria-hidden", "true");
+    }
+
+    document.addEventListener("click", (event) => {
+      const close = event.target.closest("#drawerClose");
+      if (close || event.target.id === "drawerBackdrop") {
+        closeDrawer();
+        return;
+      }
+      const trigger = event.target.closest("[data-finding]");
+      if (trigger) openFinding(trigger.dataset.finding);
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        closeDrawer();
+        return;
+      }
+      if ((event.key === "Enter" || event.key === " ") && event.target.matches("[data-finding]")) {
+        event.preventDefault();
+        openFinding(event.target.dataset.finding);
+      }
+    });
 
     refresh();
     setInterval(refresh, 5000);

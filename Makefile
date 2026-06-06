@@ -43,7 +43,7 @@ undeploy:
 	kubectl delete -k config/manager --ignore-not-found
 
 .PHONY: sample
-sample:
+sample: ensure-kind-context
 	kubectl label node --all karpenter.sh/nodepool=kind-general --overwrite
 	kubectl apply -k config/samples
 
@@ -67,19 +67,28 @@ run:
 kind-up:
 	kind get clusters | grep -qx "$(KIND_CLUSTER)" || kind create cluster --name "$(KIND_CLUSTER)"
 
+.PHONY: kind-context
+kind-context: kind-up
+	kubectl config use-context kind-$(KIND_CLUSTER)
+
+.PHONY: ensure-kind-context
+ensure-kind-context:
+	@test "$$(kubectl config current-context)" = "kind-$(KIND_CLUSTER)" || \
+		(echo "Refusing to run sample target outside kind-$(KIND_CLUSTER). Current context: $$(kubectl config current-context)" >&2; exit 1)
+
 .PHONY: kind-load
 kind-load:
 	kind load docker-image $(IMG) --name "$(KIND_CLUSTER)"
 
 .PHONY: demo-kind
-demo-kind: kind-up docker-build kind-load deploy
+demo-kind: kind-context docker-build kind-load deploy
 	kubectl -n $(FINDING_NAMESPACE) rollout status deployment/yardmaster --timeout=90s
 	kubectl -n $(FINDING_NAMESPACE) rollout status deployment/yardmaster-dashboard --timeout=90s
 	$(MAKE) sample
 	$(MAKE) report
 
 .PHONY: smoke-kind
-smoke-kind: kind-up install
+smoke-kind: kind-context install
 	kubectl delete -k config/samples --ignore-not-found
 	kubectl delete dispatchfindings.yardmaster.dev --all -n $(FINDING_NAMESPACE) --ignore-not-found
 	go run ./cmd/yardmaster --finding-namespace=$(FINDING_NAMESPACE) >/tmp/yardmaster-smoke.log 2>&1 & \
