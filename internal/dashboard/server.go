@@ -326,22 +326,22 @@ const pageHTML = `<!doctype html>
   <title>Yardmaster</title>
   <style>
     :root {
-      color-scheme: dark;
-      --ink: #f5f8ff;
-      --muted: #9fb0c8;
-      --soft: #c8d7f2;
-      --line: rgba(122, 166, 255, .22);
-      --line-strong: rgba(122, 166, 255, .42);
-      --panel: rgba(8, 22, 44, .88);
-      --panel-strong: rgba(13, 34, 66, .95);
-      --wash: #06101f;
-      --blue: #2f7dff;
-      --blue-soft: #69a8ff;
-      --cyan: #24d4ff;
-      --amber: #dc9444;
-      --amber-dark: #a85e1c;
-      --critical: #e45b76;
-      --ok: #2fc78a;
+      color-scheme: light;
+      --ink: #142033;
+      --muted: #617089;
+      --soft: #34445c;
+      --line: #c8d7eb;
+      --line-strong: #91acd0;
+      --panel: #ffffff;
+      --panel-strong: #f7fbff;
+      --wash: #eef4fb;
+      --blue: #246bfe;
+      --blue-soft: #4f93ff;
+      --cyan: #0ea5c8;
+      --amber: #e5a64b;
+      --amber-dark: #a9651f;
+      --critical: #d84263;
+      --ok: #22a66f;
     }
     * { box-sizing: border-box; }
     body {
@@ -349,8 +349,9 @@ const pageHTML = `<!doctype html>
       min-height: 100vh;
       color: var(--ink);
       background:
-        radial-gradient(circle at 42% -20%, rgba(53, 131, 255, .30), transparent 33%),
-        linear-gradient(180deg, #071324 0%, #06101f 46%, #08182b 100%);
+        radial-gradient(circle at 18% -8%, rgba(79, 147, 255, .22), transparent 30%),
+        radial-gradient(circle at 90% 8%, rgba(14, 165, 200, .14), transparent 24%),
+        linear-gradient(180deg, #f8fbff 0%, #eef4fb 48%, #e6eef8 100%);
       font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     header {
@@ -359,7 +360,7 @@ const pageHTML = `<!doctype html>
       justify-content: space-between;
       gap: 24px;
       padding: 18px 28px;
-      background: rgba(4, 12, 26, .90);
+      background: rgba(255, 255, 255, .92);
       border-bottom: 1px solid var(--line);
       position: sticky;
       top: 0;
@@ -377,8 +378,8 @@ const pageHTML = `<!doctype html>
       height: 58px;
       object-fit: cover;
       border-radius: 8px;
-      border: 1px solid rgba(85, 162, 255, .34);
-      background: #020712;
+      border: 1px solid #c5d8f2;
+      background: #f6f9ff;
     }
     h1 {
       margin: 0;
@@ -408,9 +409,9 @@ const pageHTML = `<!doctype html>
       display: none;
       margin-bottom: 14px;
       padding: 12px 14px;
-      border: 1px solid rgba(228, 91, 118, .5);
-      background: rgba(79, 19, 36, .72);
-      color: #ffdce4;
+      border: 1px solid #f0a9b9;
+      background: #fff1f4;
+      color: #8f2440;
       border-radius: 8px;
     }
     .control-deck {
@@ -423,7 +424,7 @@ const pageHTML = `<!doctype html>
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 8px;
-      box-shadow: 0 18px 54px rgba(0, 0, 0, .24);
+      box-shadow: 0 18px 44px rgba(41, 72, 110, .12);
     }
     .control-card {
       min-height: 122px;
@@ -434,7 +435,7 @@ const pageHTML = `<!doctype html>
     }
     .control-card.primary {
       background:
-        linear-gradient(135deg, rgba(37, 95, 181, .54), rgba(8, 22, 44, .93)),
+        linear-gradient(135deg, #dbeaff, #ffffff),
         var(--panel);
     }
     .control-label {
@@ -466,8 +467,8 @@ const pageHTML = `<!doctype html>
       height: 8px;
       overflow: hidden;
       border-radius: 999px;
-      background: rgba(122, 166, 255, .14);
-      border: 1px solid rgba(122, 166, 255, .16);
+      background: #e7eef8;
+      border: 1px solid #d6e1ef;
     }
     .meter span {
       display: block;
@@ -499,15 +500,15 @@ const pageHTML = `<!doctype html>
       width: 100%;
       min-height: 38px;
       color: var(--ink);
-      background: rgba(5, 15, 32, .86);
-      border: 1px solid rgba(122, 166, 255, .24);
+      background: #ffffff;
+      border: 1px solid #c8d7eb;
       border-radius: 8px;
       padding: 8px 10px;
       font: inherit;
     }
-    input::placeholder { color: #73849f; }
+    input::placeholder { color: #8795a8; }
     input:focus, select:focus {
-      outline: 2px solid rgba(36, 212, 255, .7);
+      outline: 2px solid rgba(14, 165, 200, .55);
       outline-offset: 2px;
     }
     .yard-board {
@@ -517,7 +518,7 @@ const pageHTML = `<!doctype html>
       padding: 18px;
       margin-bottom: 22px;
       background:
-        linear-gradient(135deg, rgba(16, 45, 86, .92), rgba(4, 16, 34, .94)),
+        linear-gradient(135deg, #ffffff, #edf6ff),
         var(--panel-strong);
     }
     .yard-title {
@@ -541,12 +542,12 @@ const pageHTML = `<!doctype html>
       gap: 18px;
       align-content: start;
       padding: 18px;
-      border: 1px solid rgba(85, 162, 255, .20);
+      border: 1px solid #c8d7eb;
       border-radius: 8px;
       background:
-        linear-gradient(90deg, rgba(85, 162, 255, .08) 1px, transparent 1px) 0 0 / 48px 48px,
-        linear-gradient(180deg, rgba(85, 162, 255, .05), transparent),
-        rgba(3, 12, 27, .46);
+        linear-gradient(90deg, rgba(36, 107, 254, .10) 1px, transparent 1px) 0 0 / 48px 48px,
+        linear-gradient(180deg, rgba(255, 255, 255, .80), rgba(226, 238, 251, .62)),
+        #f3f8fe;
     }
     .yard-empty {
       min-height: 260px;
@@ -567,9 +568,9 @@ const pageHTML = `<!doctype html>
       grid-template-columns: 250px minmax(0, 1fr);
       gap: 22px;
       align-items: stretch;
-      border: 1px solid rgba(85, 162, 255, .28);
+      border: 1px solid #bed2eb;
       border-radius: 8px;
-      background: linear-gradient(90deg, rgba(16, 44, 86, .96), rgba(7, 24, 52, .86));
+      background: linear-gradient(90deg, #f8fbff, #e8f2fe);
       position: relative;
       overflow: hidden;
       padding: 18px;
@@ -580,7 +581,7 @@ const pageHTML = `<!doctype html>
       left: 302px;
       right: 22px;
       height: 2px;
-      background: rgba(194, 218, 255, .42);
+      background: rgba(80, 118, 166, .34);
     }
     .track-lane:before { top: 72px; }
     .track-lane:after { bottom: 72px; }
@@ -594,10 +595,10 @@ const pageHTML = `<!doctype html>
     .track-name {
       width: 100%;
       padding: 10px 12px;
-      border: 1px solid rgba(122, 166, 255, .26);
+      border: 1px solid #c6d7ed;
       border-radius: 8px;
-      color: #eef5ff;
-      background: rgba(3, 12, 27, .42);
+      color: var(--ink);
+      background: rgba(255, 255, 255, .86);
       font-weight: 850;
       overflow-wrap: anywhere;
       cursor: pointer;
@@ -608,9 +609,9 @@ const pageHTML = `<!doctype html>
     }
     .track-kpi {
       padding: 9px 10px;
-      border: 1px solid rgba(122, 166, 255, .18);
+      border: 1px solid #d4e1f0;
       border-radius: 8px;
-      background: rgba(3, 12, 27, .38);
+      background: rgba(255, 255, 255, .72);
     }
     .track-kpi strong {
       display: block;
@@ -635,8 +636,8 @@ const pageHTML = `<!doctype html>
       border-radius: 7px;
       background:
         linear-gradient(180deg, rgba(250, 177, 88, .98), rgba(167, 91, 24, .98));
-      border: 1px solid rgba(255, 214, 161, .74);
-      box-shadow: inset 10px 0 0 rgba(255, 255, 255, .10), 0 12px 26px rgba(0, 0, 0, .22);
+      border: 1px solid #bf7b31;
+      box-shadow: inset 10px 0 0 rgba(255, 255, 255, .16), 0 12px 24px rgba(114, 76, 34, .18);
       color: #071324;
       text-align: left;
       cursor: pointer;
@@ -658,7 +659,7 @@ const pageHTML = `<!doctype html>
     .cargo-meta span {
       padding: 2px 6px;
       border-radius: 999px;
-      background: rgba(7, 19, 36, .18);
+      background: rgba(255, 255, 255, .30);
       color: #071324;
       font-size: 11px;
       font-weight: 800;
@@ -670,10 +671,10 @@ const pageHTML = `<!doctype html>
     }
     .dispatch-card {
       width: 100%;
-      border: 1px solid rgba(85, 162, 255, .23);
+      border: 1px solid #c8d7eb;
       border-radius: 8px;
       padding: 13px;
-      background: rgba(4, 14, 31, .66);
+      background: #ffffff;
       color: inherit;
       text-align: left;
     }
@@ -691,8 +692,8 @@ const pageHTML = `<!doctype html>
       font-size: 13px;
     }
     .dispatch-clear {
-      border-color: rgba(47, 199, 138, .34);
-      background: rgba(15, 54, 44, .48);
+      border-color: #a9d9c4;
+      background: #ecfbf4;
     }
     .section {
       margin-top: 22px;
@@ -720,8 +721,8 @@ const pageHTML = `<!doctype html>
       cursor: pointer;
     }
     .cargo:hover, button.dispatch-card:hover, .finding[role="button"]:hover, .track-name[data-finding]:hover {
-      border-color: rgba(85, 162, 255, .62);
-      box-shadow: 0 0 0 1px rgba(85, 162, 255, .18), 0 18px 54px rgba(0, 0, 0, .25);
+      border-color: #7ea9e8;
+      box-shadow: 0 0 0 1px rgba(36, 107, 254, .16), 0 18px 44px rgba(41, 72, 110, .14);
     }
     .cargo:focus-visible, button.dispatch-card:focus-visible, .finding[role="button"]:focus-visible, .track-name[data-finding]:focus-visible, .drawer-close:focus-visible {
       outline: 2px solid var(--cyan);
@@ -739,7 +740,7 @@ const pageHTML = `<!doctype html>
     }
     .summary {
       margin: 5px 0 0;
-      color: #dce9ff;
+      color: #2b3b52;
     }
     .detail {
       margin: 0;
@@ -754,9 +755,9 @@ const pageHTML = `<!doctype html>
     .related span, .chip {
       max-width: 100%;
       padding: 4px 8px;
-      color: #cfe2ff;
-      background: rgba(85, 162, 255, .12);
-      border: 1px solid rgba(85, 162, 255, .22);
+      color: #1e4d94;
+      background: #eef5ff;
+      border: 1px solid #c8d7eb;
       border-radius: 999px;
       font-size: 12px;
       overflow-wrap: anywhere;
@@ -800,7 +801,7 @@ const pageHTML = `<!doctype html>
       inset: 0;
       display: none;
       justify-content: flex-end;
-      background: rgba(1, 7, 17, .58);
+      background: rgba(45, 59, 79, .28);
       z-index: 20;
     }
     .drawer-backdrop.open {
@@ -811,9 +812,9 @@ const pageHTML = `<!doctype html>
       height: 100vh;
       overflow: auto;
       padding: 24px;
-      background: rgba(5, 15, 32, .98);
+      background: #ffffff;
       border-left: 1px solid var(--line);
-      box-shadow: -24px 0 70px rgba(0, 0, 0, .36);
+      box-shadow: -24px 0 70px rgba(41, 72, 110, .24);
     }
     .drawer-head {
       display: flex;
@@ -835,10 +836,10 @@ const pageHTML = `<!doctype html>
     }
     .drawer-meta span {
       padding: 4px 8px;
-      border: 1px solid rgba(85, 162, 255, .22);
+      border: 1px solid #c8d7eb;
       border-radius: 999px;
-      color: #cfe2ff;
-      background: rgba(85, 162, 255, .10);
+      color: #1e4d94;
+      background: #eef5ff;
       font-size: 12px;
     }
     .drawer-close {
@@ -846,10 +847,10 @@ const pageHTML = `<!doctype html>
       width: 38px;
       height: 38px;
       flex: 0 0 auto;
-      border: 1px solid rgba(85, 162, 255, .28);
+      border: 1px solid #c8d7eb;
       border-radius: 8px;
       color: var(--ink);
-      background: rgba(85, 162, 255, .10);
+      background: #eef5ff;
       cursor: pointer;
       font-size: 24px;
       line-height: 1;
@@ -857,7 +858,7 @@ const pageHTML = `<!doctype html>
     .drawer-section {
       margin-top: 20px;
       padding-top: 18px;
-      border-top: 1px solid rgba(122, 166, 255, .14);
+      border-top: 1px solid #dde7f4;
     }
     .drawer-section h3 {
       margin: 0 0 9px;
@@ -868,7 +869,7 @@ const pageHTML = `<!doctype html>
     }
     .drawer-section p {
       margin: 0;
-      color: #dce9ff;
+      color: #2b3b52;
     }
     .drawer-grid {
       display: grid;
@@ -877,9 +878,9 @@ const pageHTML = `<!doctype html>
     }
     .drawer-tile {
       padding: 11px;
-      border: 1px solid rgba(122, 166, 255, .18);
+      border: 1px solid #d4e1f0;
       border-radius: 8px;
-      background: rgba(85, 162, 255, .08);
+      background: #f5f9ff;
     }
     .drawer-tile strong {
       display: block;
