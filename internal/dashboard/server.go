@@ -30,16 +30,22 @@ type Server struct {
 }
 
 type Finding struct {
-	Name            string   `json:"name"`
-	Severity        string   `json:"severity"`
-	Category        string   `json:"category"`
-	CategoryTitle   string   `json:"categoryTitle"`
-	Subject         string   `json:"subject"`
-	Related         []string `json:"related"`
-	Summary         string   `json:"summary"`
-	Detail          string   `json:"detail"`
-	Recommendations []string `json:"recommendations"`
-	LastSeen        string   `json:"lastSeen"`
+	Name             string   `json:"name"`
+	Severity         string   `json:"severity"`
+	Category         string   `json:"category"`
+	CategoryTitle    string   `json:"categoryTitle"`
+	Subject          string   `json:"subject"`
+	SubjectKind      string   `json:"subjectKind"`
+	SubjectNamespace string   `json:"subjectNamespace"`
+	SubjectName      string   `json:"subjectName"`
+	Signal           string   `json:"signal"`
+	Action           string   `json:"action"`
+	Confidence       string   `json:"confidence"`
+	Related          []string `json:"related"`
+	Summary          string   `json:"summary"`
+	Detail           string   `json:"detail"`
+	Recommendations  []string `json:"recommendations"`
+	LastSeen         string   `json:"lastSeen"`
 }
 
 type FindingsResponse struct {
@@ -158,17 +164,24 @@ func (s *Server) fetchFindings(ctx context.Context) (FindingsResponse, error) {
 	}
 
 	for _, item := range list.Items {
+		subject := item.Spec.Subject
 		finding := Finding{
-			Name:            item.Name,
-			Severity:        string(item.Spec.Severity),
-			Category:        item.Spec.Category,
-			CategoryTitle:   categoryTitle(item.Spec.Category),
-			Subject:         subjectLabel(item),
-			Related:         relatedLabels(item.Spec.Related),
-			Summary:         item.Spec.Summary,
-			Detail:          item.Spec.Detail,
-			Recommendations: item.Spec.Recommendations,
-			LastSeen:        timeLabel(item.Status.LastSeen.Time),
+			Name:             item.Name,
+			Severity:         string(item.Spec.Severity),
+			Category:         item.Spec.Category,
+			CategoryTitle:    categoryTitle(item.Spec.Category),
+			Subject:          subjectLabel(item),
+			SubjectKind:      subject.Kind,
+			SubjectNamespace: subject.Namespace,
+			SubjectName:      subject.Name,
+			Signal:           signalLabel(item.Spec.Category),
+			Action:           actionLabel(item),
+			Confidence:       confidenceLabel(item),
+			Related:          relatedLabels(item.Spec.Related),
+			Summary:          item.Spec.Summary,
+			Detail:           item.Spec.Detail,
+			Recommendations:  item.Spec.Recommendations,
+			LastSeen:         timeLabel(item.Status.LastSeen.Time),
 		}
 		response.Findings = append(response.Findings, finding)
 		response.Counts.Total++
@@ -216,6 +229,45 @@ func categoryTitle(category string) string {
 	default:
 		return strings.ToUpper(category[:1]) + category[1:]
 	}
+}
+
+func signalLabel(category string) string {
+	switch category {
+	case "scheduling":
+		return "Placement blocker"
+	case "requests":
+		return "Request coverage"
+	case "tracks":
+		return "Capacity track"
+	default:
+		return "Capacity finding"
+	}
+}
+
+func actionLabel(finding yardv1alpha1.DispatchFinding) string {
+	switch finding.Spec.Category {
+	case "scheduling":
+		return "Investigate placement"
+	case "requests":
+		return "Set requests"
+	case "tracks":
+		return "Review track"
+	default:
+		if len(finding.Spec.Recommendations) > 0 {
+			return "Review recommendation"
+		}
+		return "Review"
+	}
+}
+
+func confidenceLabel(finding yardv1alpha1.DispatchFinding) string {
+	if finding.Spec.Detail != "" && len(finding.Spec.Recommendations) > 0 {
+		return "high"
+	}
+	if finding.Spec.Detail != "" {
+		return "medium"
+	}
+	return "observed"
 }
 
 func categoryRank(category string) int {
@@ -275,18 +327,20 @@ const pageHTML = `<!doctype html>
   <style>
     :root {
       color-scheme: dark;
-      --ink: #f4f8ff;
-      --muted: #99abc4;
-      --line: rgba(120, 163, 255, .22);
-      --panel: rgba(9, 23, 45, .86);
-      --panel-strong: rgba(12, 34, 69, .94);
+      --ink: #f5f8ff;
+      --muted: #9fb0c8;
+      --soft: #c8d7f2;
+      --line: rgba(122, 166, 255, .22);
+      --line-strong: rgba(122, 166, 255, .42);
+      --panel: rgba(8, 22, 44, .88);
+      --panel-strong: rgba(13, 34, 66, .95);
       --wash: #06101f;
-      --blue: #2677ff;
-      --blue-soft: #55a2ff;
-      --cyan: #26d3ff;
-      --warning: #d48a35;
+      --blue: #2f7dff;
+      --blue-soft: #69a8ff;
+      --cyan: #24d4ff;
+      --amber: #dc9444;
+      --amber-dark: #a85e1c;
       --critical: #e45b76;
-      --info: #2d85ff;
       --ok: #2fc78a;
     }
     * { box-sizing: border-box; }
@@ -295,8 +349,8 @@ const pageHTML = `<!doctype html>
       min-height: 100vh;
       color: var(--ink);
       background:
-        radial-gradient(circle at 48% -18%, rgba(43, 119, 255, .28), transparent 34%),
-        linear-gradient(180deg, #071324 0%, #06101f 42%, #08182b 100%);
+        radial-gradient(circle at 42% -20%, rgba(53, 131, 255, .30), transparent 33%),
+        linear-gradient(180deg, #071324 0%, #06101f 46%, #08182b 100%);
       font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     header {
@@ -305,7 +359,7 @@ const pageHTML = `<!doctype html>
       justify-content: space-between;
       gap: 24px;
       padding: 18px 28px;
-      background: rgba(4, 12, 26, .88);
+      background: rgba(4, 12, 26, .90);
       border-bottom: 1px solid var(--line);
       position: sticky;
       top: 0;
@@ -319,17 +373,17 @@ const pageHTML = `<!doctype html>
       min-width: 0;
     }
     .brand img {
-      width: 52px;
-      height: 52px;
+      width: 58px;
+      height: 58px;
       object-fit: cover;
       border-radius: 8px;
-      border: 1px solid rgba(85, 162, 255, .32);
+      border: 1px solid rgba(85, 162, 255, .34);
       background: #020712;
     }
     h1 {
       margin: 0;
-      font-size: 22px;
-      font-weight: 800;
+      font-size: 25px;
+      font-weight: 850;
       letter-spacing: 0;
     }
     .tagline {
@@ -338,9 +392,9 @@ const pageHTML = `<!doctype html>
       font-size: 13px;
     }
     main {
-      max-width: 1280px;
+      max-width: 1500px;
       margin: 0 auto;
-      padding: 22px 24px 44px;
+      padding: 22px 24px 48px;
     }
     .meta {
       display: flex;
@@ -350,34 +404,115 @@ const pageHTML = `<!doctype html>
       color: var(--muted);
       font-size: 13px;
     }
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(150px, 1fr));
-      gap: 12px;
-      margin-bottom: 18px;
+    .error {
+      display: none;
+      margin-bottom: 14px;
+      padding: 12px 14px;
+      border: 1px solid rgba(228, 91, 118, .5);
+      background: rgba(79, 19, 36, .72);
+      color: #ffdce4;
+      border-radius: 8px;
     }
-    .stat, .finding, .yard-board {
+    .control-deck {
+      display: grid;
+      grid-template-columns: minmax(260px, 1.3fr) repeat(3, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .control-card, .yard-board, .finding, .toolbar {
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 8px;
-      box-shadow: 0 18px 54px rgba(0, 0, 0, .22);
+      box-shadow: 0 18px 54px rgba(0, 0, 0, .24);
     }
-    .stat {
-      padding: 14px 16px;
+    .control-card {
+      min-height: 122px;
+      padding: 16px;
+      display: grid;
+      align-content: space-between;
+      gap: 14px;
     }
-    .stat b {
-      display: block;
-      font-size: 26px;
-      line-height: 1.1;
-      margin-bottom: 4px;
+    .control-card.primary {
+      background:
+        linear-gradient(135deg, rgba(37, 95, 181, .54), rgba(8, 22, 44, .93)),
+        var(--panel);
     }
-    .stat span {
+    .control-label {
       color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .control-value {
+      font-size: 30px;
+      font-weight: 850;
+      line-height: 1.05;
+      overflow-wrap: anywhere;
+    }
+    .control-note {
+      color: var(--soft);
       font-size: 13px;
+    }
+    .metric-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--soft);
+      font-size: 13px;
+    }
+    .meter {
+      height: 8px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(122, 166, 255, .14);
+      border: 1px solid rgba(122, 166, 255, .16);
+    }
+    .meter span {
+      display: block;
+      height: 100%;
+      width: 0%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--blue), var(--cyan));
+    }
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(240px, 1.2fr) repeat(3, minmax(150px, .55fr));
+      gap: 10px;
+      padding: 12px;
+      margin-bottom: 16px;
+      align-items: end;
+    }
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+    .field label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    input, select {
+      width: 100%;
+      min-height: 38px;
+      color: var(--ink);
+      background: rgba(5, 15, 32, .86);
+      border: 1px solid rgba(122, 166, 255, .24);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font: inherit;
+    }
+    input::placeholder { color: #73849f; }
+    input:focus, select:focus {
+      outline: 2px solid rgba(36, 212, 255, .7);
+      outline-offset: 2px;
     }
     .yard-board {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 320px;
+      grid-template-columns: minmax(0, 1fr) 380px;
       gap: 18px;
       padding: 18px;
       margin-bottom: 22px;
@@ -394,26 +529,27 @@ const pageHTML = `<!doctype html>
     }
     .yard-title h2, .section h2 {
       margin: 0;
-      font-size: 16px;
+      font-size: 17px;
     }
-    .yard-title span {
+    .yard-title span, .section-count {
       color: var(--muted);
       font-size: 13px;
     }
     .yard-map {
-      min-height: 300px;
+      min-height: 560px;
       display: grid;
-      gap: 12px;
+      gap: 18px;
       align-content: start;
-      padding: 14px;
-      border: 1px solid rgba(85, 162, 255, .18);
+      padding: 18px;
+      border: 1px solid rgba(85, 162, 255, .20);
       border-radius: 8px;
       background:
-        linear-gradient(90deg, rgba(85, 162, 255, .08) 1px, transparent 1px) 0 0 / 42px 42px,
+        linear-gradient(90deg, rgba(85, 162, 255, .08) 1px, transparent 1px) 0 0 / 48px 48px,
+        linear-gradient(180deg, rgba(85, 162, 255, .05), transparent),
         rgba(3, 12, 27, .46);
     }
     .yard-empty {
-      min-height: 180px;
+      min-height: 260px;
       display: grid;
       align-content: center;
       justify-items: center;
@@ -425,78 +561,107 @@ const pageHTML = `<!doctype html>
       color: var(--ink);
       font-size: 18px;
     }
-    .yard-empty p {
-      max-width: 520px;
-      margin: 0;
-    }
-    code {
-      color: #cfe2ff;
-      background: rgba(85, 162, 255, .12);
-      border: 1px solid rgba(85, 162, 255, .22);
-      border-radius: 4px;
-      padding: 1px 5px;
-    }
     .track-lane {
-      min-height: 112px;
+      min-height: 260px;
       display: grid;
-      grid-template-columns: minmax(190px, 240px) minmax(0, 1fr);
-      gap: 18px;
-      align-items: center;
-      border: 1px solid rgba(85, 162, 255, .26);
+      grid-template-columns: 250px minmax(0, 1fr);
+      gap: 22px;
+      align-items: stretch;
+      border: 1px solid rgba(85, 162, 255, .28);
       border-radius: 8px;
-      background: linear-gradient(90deg, rgba(16, 44, 86, .92), rgba(7, 24, 52, .82));
+      background: linear-gradient(90deg, rgba(16, 44, 86, .96), rgba(7, 24, 52, .86));
       position: relative;
       overflow: hidden;
-      padding: 14px 16px;
+      padding: 18px;
     }
     .track-lane:before, .track-lane:after {
       content: "";
       position: absolute;
-      left: 274px;
-      right: 16px;
+      left: 302px;
+      right: 22px;
       height: 2px;
-      background: rgba(194, 218, 255, .45);
+      background: rgba(194, 218, 255, .42);
     }
-    .track-lane:before { top: 37px; }
-    .track-lane:after { bottom: 37px; }
+    .track-lane:before { top: 72px; }
+    .track-lane:after { bottom: 72px; }
+    .track-panel {
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      position: relative;
+      z-index: 1;
+    }
     .track-name {
-      font-weight: 800;
-      overflow-wrap: break-word;
-      color: #e9f3ff;
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid rgba(122, 166, 255, .26);
+      border-radius: 8px;
+      color: #eef5ff;
+      background: rgba(3, 12, 27, .42);
+      font-weight: 850;
+      overflow-wrap: anywhere;
+      cursor: pointer;
     }
-    .track-detail {
+    .track-kpis {
+      display: grid;
+      gap: 9px;
+    }
+    .track-kpi {
+      padding: 9px 10px;
+      border: 1px solid rgba(122, 166, 255, .18);
+      border-radius: 8px;
+      background: rgba(3, 12, 27, .38);
+    }
+    .track-kpi strong {
+      display: block;
+      font-size: 15px;
+    }
+    .track-kpi span {
       color: var(--muted);
       font-size: 12px;
-      margin-top: 8px;
     }
     .cargo-row {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      align-items: center;
-      min-height: 66px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+      gap: 14px;
+      align-content: start;
       position: relative;
       z-index: 1;
     }
     .cargo {
       appearance: none;
-      width: 124px;
-      min-height: 48px;
-      padding: 7px 8px;
-      border-radius: 4px;
-      background: linear-gradient(180deg, #1f7bff, #0d43b5);
-      border: 1px solid rgba(151, 197, 255, .62);
-      box-shadow: inset 8px 0 0 rgba(255, 255, 255, .10);
-      font-size: 11px;
-      font-weight: 700;
-      overflow-wrap: anywhere;
-      color: #f4f8ff;
+      min-height: 92px;
+      padding: 12px;
+      border-radius: 7px;
+      background:
+        linear-gradient(180deg, rgba(250, 177, 88, .98), rgba(167, 91, 24, .98));
+      border: 1px solid rgba(255, 214, 161, .74);
+      box-shadow: inset 10px 0 0 rgba(255, 255, 255, .10), 0 12px 26px rgba(0, 0, 0, .22);
+      color: #071324;
       text-align: left;
       cursor: pointer;
+      display: grid;
+      align-content: space-between;
+      gap: 10px;
     }
-    .cargo.warning {
-      background: linear-gradient(180deg, #f0a24b, #ad5f19);
-      border-color: rgba(255, 211, 154, .78);
+    .cargo-title {
+      font-size: 13px;
+      line-height: 1.2;
+      font-weight: 850;
+      overflow-wrap: anywhere;
+    }
+    .cargo-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+    .cargo-meta span {
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: rgba(7, 19, 36, .18);
+      color: #071324;
+      font-size: 11px;
+      font-weight: 800;
     }
     .dispatch-panel {
       display: grid;
@@ -507,7 +672,7 @@ const pageHTML = `<!doctype html>
       width: 100%;
       border: 1px solid rgba(85, 162, 255, .23);
       border-radius: 8px;
-      padding: 12px;
+      padding: 13px;
       background: rgba(4, 14, 31, .66);
       color: inherit;
       text-align: left;
@@ -525,22 +690,38 @@ const pageHTML = `<!doctype html>
       color: var(--muted);
       font-size: 13px;
     }
+    .dispatch-clear {
+      border-color: rgba(47, 199, 138, .34);
+      background: rgba(15, 54, 44, .48);
+    }
     .section {
       margin-top: 22px;
     }
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
     .list {
       display: grid;
-      gap: 10px;
+      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+      gap: 12px;
     }
     .finding {
-      padding: 14px 16px;
+      min-height: 178px;
+      padding: 15px;
+      display: grid;
+      align-content: space-between;
+      gap: 12px;
     }
     .finding[role="button"], .track-name[data-finding] {
       cursor: pointer;
     }
     .cargo:hover, button.dispatch-card:hover, .finding[role="button"]:hover, .track-name[data-finding]:hover {
       border-color: rgba(85, 162, 255, .62);
-      box-shadow: 0 0 0 1px rgba(85, 162, 255, .16), 0 18px 54px rgba(0, 0, 0, .22);
+      box-shadow: 0 0 0 1px rgba(85, 162, 255, .18), 0 18px 54px rgba(0, 0, 0, .25);
     }
     .cargo:focus-visible, button.dispatch-card:focus-visible, .finding[role="button"]:focus-visible, .track-name[data-finding]:focus-visible, .drawer-close:focus-visible {
       outline: 2px solid var(--cyan);
@@ -551,35 +732,39 @@ const pageHTML = `<!doctype html>
       align-items: flex-start;
       justify-content: space-between;
       gap: 14px;
-      margin-bottom: 8px;
     }
     .subject {
-      font-weight: 800;
+      font-weight: 850;
       overflow-wrap: anywhere;
     }
     .summary {
-      margin: 4px 0 0;
+      margin: 5px 0 0;
       color: #dce9ff;
     }
     .detail {
-      margin: 8px 0 0;
+      margin: 0;
       color: var(--muted);
     }
     .related {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
-      margin-top: 10px;
+      margin-top: 8px;
     }
-    .related span {
+    .related span, .chip {
       max-width: 100%;
-      padding: 3px 7px;
+      padding: 4px 8px;
       color: #cfe2ff;
       background: rgba(85, 162, 255, .12);
       border: 1px solid rgba(85, 162, 255, .22);
-      border-radius: 4px;
+      border-radius: 999px;
       font-size: 12px;
       overflow-wrap: anywhere;
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
     }
     .pill {
       display: inline-flex;
@@ -588,14 +773,15 @@ const pageHTML = `<!doctype html>
       padding: 0 9px;
       border-radius: 999px;
       font-size: 12px;
-      font-weight: 800;
+      font-weight: 850;
       text-transform: uppercase;
       letter-spacing: .04em;
       white-space: nowrap;
     }
-    .warning { color: #071324; background: var(--warning); }
+    .warning { color: #071324; background: var(--amber); }
     .critical { color: #fff; background: var(--critical); }
-    .info { color: #fff; background: var(--info); }
+    .info { color: #fff; background: var(--blue); }
+    .ok { color: #04140e; background: var(--ok); }
     ul {
       margin: 10px 0 0 18px;
       padding: 0;
@@ -607,15 +793,6 @@ const pageHTML = `<!doctype html>
       color: var(--muted);
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 8px;
-    }
-    .error {
-      display: none;
-      margin-bottom: 14px;
-      padding: 12px 14px;
-      border: 1px solid rgba(228, 91, 118, .5);
-      background: rgba(79, 19, 36, .72);
-      color: #ffdce4;
       border-radius: 8px;
     }
     .drawer-backdrop {
@@ -630,10 +807,10 @@ const pageHTML = `<!doctype html>
       display: flex;
     }
     .drawer {
-      width: min(460px, 100vw);
+      width: min(560px, 100vw);
       height: 100vh;
       overflow: auto;
-      padding: 22px;
+      padding: 24px;
       background: rgba(5, 15, 32, .98);
       border-left: 1px solid var(--line);
       box-shadow: -24px 0 70px rgba(0, 0, 0, .36);
@@ -643,45 +820,47 @@ const pageHTML = `<!doctype html>
       align-items: flex-start;
       justify-content: space-between;
       gap: 16px;
-      margin-bottom: 18px;
+      margin-bottom: 20px;
     }
     .drawer-title {
       margin: 0;
-      font-size: 18px;
+      font-size: 21px;
       overflow-wrap: anywhere;
     }
     .drawer-meta {
       display: flex;
       flex-wrap: wrap;
       gap: 7px;
-      margin-top: 9px;
+      margin-top: 10px;
     }
     .drawer-meta span {
-      padding: 4px 7px;
+      padding: 4px 8px;
       border: 1px solid rgba(85, 162, 255, .22);
-      border-radius: 4px;
+      border-radius: 999px;
       color: #cfe2ff;
       background: rgba(85, 162, 255, .10);
       font-size: 12px;
     }
     .drawer-close {
       appearance: none;
-      width: 34px;
-      height: 34px;
+      width: 38px;
+      height: 38px;
       flex: 0 0 auto;
       border: 1px solid rgba(85, 162, 255, .28);
       border-radius: 8px;
       color: var(--ink);
       background: rgba(85, 162, 255, .10);
       cursor: pointer;
-      font-size: 22px;
+      font-size: 24px;
       line-height: 1;
     }
     .drawer-section {
-      margin-top: 18px;
+      margin-top: 20px;
+      padding-top: 18px;
+      border-top: 1px solid rgba(122, 166, 255, .14);
     }
     .drawer-section h3 {
-      margin: 0 0 8px;
+      margin: 0 0 9px;
       font-size: 12px;
       color: var(--muted);
       text-transform: uppercase;
@@ -691,16 +870,39 @@ const pageHTML = `<!doctype html>
       margin: 0;
       color: #dce9ff;
     }
-    @media (max-width: 900px) {
+    .drawer-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .drawer-tile {
+      padding: 11px;
+      border: 1px solid rgba(122, 166, 255, .18);
+      border-radius: 8px;
+      background: rgba(85, 162, 255, .08);
+    }
+    .drawer-tile strong {
+      display: block;
+      font-size: 18px;
+    }
+    .drawer-tile span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    @media (max-width: 1100px) {
+      .control-deck, .toolbar, .yard-board { grid-template-columns: 1fr; }
+      .yard-map { min-height: 420px; }
+      .track-lane { grid-template-columns: 1fr; }
+      .track-lane:before, .track-lane:after { left: 22px; }
+      .list { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 700px) {
       header { align-items: flex-start; flex-direction: column; }
       main { padding: 16px; }
-      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .yard-board { grid-template-columns: 1fr; }
-      .track-lane { grid-template-columns: 1fr; align-items: start; }
-      .track-lane:before, .track-lane:after { left: 16px; }
-      .finding-head { flex-direction: column; }
-      .meta { justify-content: flex-start; }
+      .control-deck { grid-template-columns: 1fr; }
+      .cargo-row { grid-template-columns: 1fr; }
       .drawer { width: 100vw; }
+      .drawer-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -720,17 +922,40 @@ const pageHTML = `<!doctype html>
   </header>
   <main>
     <div id="error" class="error"></div>
-    <section class="stats">
-      <div class="stat"><b id="total">0</b><span>Total findings</span></div>
-      <div class="stat"><b id="warnings">0</b><span>Dispatch warnings</span></div>
-      <div class="stat"><b id="requests">0</b><span>Cargo request gaps</span></div>
-      <div class="stat"><b id="tracks">0</b><span>Tracks</span></div>
+    <section id="controlDeck" class="control-deck"></section>
+    <section class="toolbar" aria-label="Finding filters">
+      <div class="field">
+        <label for="search">Search Yard</label>
+        <input id="search" type="search" placeholder="workload, namespace, reason, recommendation">
+      </div>
+      <div class="field">
+        <label for="namespaceFilter">Namespace</label>
+        <select id="namespaceFilter"></select>
+      </div>
+      <div class="field">
+        <label for="categoryFilter">Signal</label>
+        <select id="categoryFilter">
+          <option value="all">All signals</option>
+          <option value="scheduling">Scheduling</option>
+          <option value="requests">Requests</option>
+          <option value="tracks">Tracks</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="severityFilter">Severity</label>
+        <select id="severityFilter">
+          <option value="all">All severities</option>
+          <option value="critical">Critical</option>
+          <option value="warning">Warning</option>
+          <option value="info">Info</option>
+        </select>
+      </div>
     </section>
     <section class="yard-board">
       <div>
         <div class="yard-title">
           <h2>The Yard</h2>
-          <span>Tracks and Cargo</span>
+          <span id="yardCaption">Tracks, Cargo, and placement signals</span>
         </div>
         <div id="yardObjects" class="yard-map"></div>
       </div>
@@ -753,6 +978,10 @@ const pageHTML = `<!doctype html>
         </div>
         <button id="drawerClose" class="drawer-close" type="button" aria-label="Close detail panel">&times;</button>
       </div>
+      <div id="drawerTrackSection" class="drawer-section">
+        <h3>Track Snapshot</h3>
+        <div id="drawerTrackGrid" class="drawer-grid"></div>
+      </div>
       <div class="drawer-section">
         <h3>Summary</h3>
         <p id="drawerSummary"></p>
@@ -762,7 +991,7 @@ const pageHTML = `<!doctype html>
         <p id="drawerDetail"></p>
       </div>
       <div id="drawerRelatedSection" class="drawer-section">
-        <h3>Related</h3>
+        <h3>Related Objects</h3>
         <div id="drawerRelated" class="related"></div>
       </div>
       <div id="drawerRecommendationSection" class="drawer-section">
@@ -774,6 +1003,7 @@ const pageHTML = `<!doctype html>
   <script>
     const categoryOrder = ["scheduling", "requests", "tracks"];
     let currentFindings = [];
+    let filterState = { search: "", namespace: "all", category: "all", severity: "all" };
     const escapeHTML = (value) => String(value || "").replace(/[&<>"']/g, (ch) => ({
       "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"
     }[ch]));
@@ -791,10 +1021,8 @@ const pageHTML = `<!doctype html>
         error.textContent = "Could not load findings: " + err.message;
         error.style.display = "block";
         document.getElementById("updated").textContent = "Cluster offline";
-        document.getElementById("total").textContent = "0";
-        document.getElementById("warnings").textContent = "0";
-        document.getElementById("requests").textContent = "0";
-        document.getElementById("tracks").textContent = "0";
+        renderControls([]);
+        renderNamespaceOptions([]);
         renderOfflineYard();
         renderFindings([]);
       }
@@ -803,12 +1031,53 @@ const pageHTML = `<!doctype html>
     function render(data) {
       currentFindings = data.findings || [];
       document.getElementById("updated").textContent = "Updated: " + new Date(data.updatedAt).toLocaleTimeString();
-      document.getElementById("total").textContent = data.counts.total;
-      document.getElementById("warnings").textContent = data.counts.warnings;
-      document.getElementById("requests").textContent = data.counts.requests;
-      document.getElementById("tracks").textContent = data.counts.tracks;
-      renderYard(currentFindings);
-      renderFindings(currentFindings);
+      renderNamespaceOptions(currentFindings);
+      renderAll();
+    }
+
+    function renderAll() {
+      const filtered = filteredFindings();
+      renderControls(filtered);
+      renderYard(filtered);
+      renderFindings(filtered);
+    }
+
+    function renderControls(findings) {
+      const total = findings.length;
+      const scheduling = countBy(findings, "category", "scheduling");
+      const requests = countBy(findings, "category", "requests");
+      const tracks = countBy(findings, "category", "tracks");
+      const warnings = findings.filter((finding) => finding.severity === "warning" || finding.severity === "critical").length;
+      const requestPct = total ? Math.round((requests / total) * 100) : 0;
+      const health = scheduling > 0 ? "Dispatch attention" : requests > 0 ? "Capacity planning risk" : "Yard clear";
+      const healthNote = scheduling > 0 ? scheduling + " placement blocker(s) need review" : requests > 0 ? requests + " workload(s) need request coverage" : "No active findings in the current view";
+
+      document.getElementById("controlDeck").innerHTML =
+        "<div class=\"control-card primary\">" +
+          "<div><div class=\"control-label\">Yard health</div><div class=\"control-value\">" + escapeHTML(health) + "</div></div>" +
+          "<div class=\"control-note\">" + escapeHTML(healthNote) + "</div>" +
+        "</div>" +
+        renderControlCard("Dispatch", String(scheduling), warnings ? warnings + " warning signal(s)" : "No active scheduling blockers", scheduling ? 100 : 0) +
+        renderControlCard("Request coverage", String(requests), requestPct + "% of visible findings", requestPct) +
+        renderControlCard("Tracks", String(tracks), total + " total visible finding(s)", tracks ? 100 : 0);
+    }
+
+    function renderControlCard(label, value, note, percent) {
+      return "<div class=\"control-card\">" +
+        "<div><div class=\"control-label\">" + escapeHTML(label) + "</div><div class=\"control-value\">" + escapeHTML(value) + "</div></div>" +
+        "<div><div class=\"metric-row\"><span>" + escapeHTML(note) + "</span></div><div class=\"meter\"><span style=\"width:" + clamp(percent, 0, 100) + "%\"></span></div></div>" +
+      "</div>";
+    }
+
+    function renderNamespaceOptions(findings) {
+      const select = document.getElementById("namespaceFilter");
+      const namespaces = [...new Set(findings.map((finding) => finding.subjectNamespace).filter(Boolean))].sort();
+      const current = select.value || filterState.namespace;
+      select.innerHTML = "<option value=\"all\">All namespaces</option>" + namespaces.map((namespace) =>
+        "<option value=\"" + escapeHTML(namespace) + "\">" + escapeHTML(namespace) + "</option>"
+      ).join("");
+      select.value = namespaces.includes(current) ? current : "all";
+      filterState.namespace = select.value;
     }
 
     function renderYard(findings) {
@@ -818,50 +1087,74 @@ const pageHTML = `<!doctype html>
       const yard = document.getElementById("yardObjects");
       const dispatchBox = document.getElementById("dispatchObjects");
       document.getElementById("dispatchCount").textContent = dispatch.length + " active";
+      document.getElementById("yardCaption").textContent = cargo.length + " Cargo object(s) on " + Math.max(tracks.length, 1) + " Track view(s)";
 
       if (!tracks.length && !cargo.length) {
-        yard.innerHTML = "<div class=\"yard-empty\"><strong>No Yard objects yet</strong><p>Run <code>make smoke-kind</code> to create sample Track, Cargo, and Dispatch findings.</p></div>";
-        dispatchBox.innerHTML = "<div class=\"dispatch-card\"><strong>Dispatch clear</strong><p>No active scheduling blockers.</p></div>";
+        yard.innerHTML = "<div class=\"yard-empty\"><strong>No Yard objects in this view</strong><p>Adjust filters or wait for Yardmaster to record Track and Cargo findings.</p></div>";
+        dispatchBox.innerHTML = renderDispatchClear();
         return;
       }
 
-      const lanes = tracks.length ? tracks : [{ subject: "track/unassigned", summary: "Cargo without a matching Track summary.", detail: "" }];
+      const lanes = tracks.length ? tracks : [{ name: "", subject: "track/unassigned", summary: "Cargo without a matching Track summary.", detail: "" }];
       yard.innerHTML = lanes.map((track, index) => {
         const laneCargo = cargo.filter((_, cargoIndex) => cargoIndex % lanes.length === index);
-        const blocks = laneCargo.length ? laneCargo.map(renderCargo).join("") : "<div class=\"cargo\">clear</div>";
         const trackAttrs = track.name ? " data-finding=\"" + escapeHTML(track.name) + "\" tabindex=\"0\" role=\"button\"" : "";
+        const metrics = parseTrackDetail(track.detail || "");
+        const blocks = laneCargo.length ? laneCargo.map(renderCargo).join("") : "<div class=\"yard-empty\"><strong>Track clear</strong><p>No Cargo findings assigned to this Track.</p></div>";
         return "<div class=\"track-lane\">" +
-          "<div class=\"track-name\"" + trackAttrs + ">" + escapeHTML(track.subject) + "</div>" +
-          "<div class=\"track-detail\">" + escapeHTML(track.summary) + "</div>" +
+          "<div class=\"track-panel\">" +
+            "<div class=\"track-name\"" + trackAttrs + ">" + escapeHTML(track.subject) + "</div>" +
+            "<div class=\"track-kpis\">" +
+              renderTrackKPI(metrics.nodes || "unknown", "nodes") +
+              renderTrackKPI(metrics.cpu || "not reported", "CPU requested") +
+              renderTrackKPI(metrics.memory || "not reported", "memory requested") +
+              renderTrackKPI(laneCargo.length, "Cargo findings") +
+            "</div>" +
+          "</div>" +
           "<div class=\"cargo-row\">" + blocks + "</div>" +
         "</div>";
       }).join("");
 
-      dispatchBox.innerHTML = dispatch.length ? dispatch.map((finding) =>
-        "<button class=\"dispatch-card\" type=\"button\" data-finding=\"" + escapeHTML(finding.name) + "\">" +
-          "<strong>" + escapeHTML(finding.subject) + "</strong>" +
-          "<p>" + escapeHTML(finding.summary) + "</p>" +
-        "</button>"
-      ).join("") : "<div class=\"dispatch-card\"><strong>Dispatch clear</strong><p>No active scheduling blockers.</p></div>";
+      dispatchBox.innerHTML = dispatch.length ? dispatch.map(renderDispatch).join("") : renderDispatchClear();
+    }
+
+    function renderTrackKPI(value, label) {
+      return "<div class=\"track-kpi\"><strong>" + escapeHTML(value) + "</strong><span>" + escapeHTML(label) + "</span></div>";
+    }
+
+    function renderDispatch(finding) {
+      return "<button class=\"dispatch-card\" type=\"button\" data-finding=\"" + escapeHTML(finding.name) + "\">" +
+        "<strong>" + escapeHTML(finding.subject) + "</strong>" +
+        "<p>" + escapeHTML(finding.summary) + "</p>" +
+        "<div class=\"chips\"><span class=\"chip\">" + escapeHTML(finding.action) + "</span><span class=\"chip\">" + escapeHTML(finding.confidence) + " confidence</span></div>" +
+      "</button>";
+    }
+
+    function renderDispatchClear() {
+      return "<div class=\"dispatch-card dispatch-clear\"><strong>Dispatch clear</strong><p>No active scheduling blockers in the current view.</p></div>";
     }
 
     function renderOfflineYard() {
       document.getElementById("dispatchCount").textContent = "0 active";
+      document.getElementById("yardCaption").textContent = "Waiting for DispatchFinding data";
       document.getElementById("yardObjects").innerHTML =
-        "<div class=\"yard-empty\"><strong>Cluster offline</strong><p>Start Docker Desktop, then run <code>make smoke-kind</code>. The dashboard will fill in once the Kubernetes API is reachable.</p></div>";
+        "<div class=\"yard-empty\"><strong>Cluster offline</strong><p>The dashboard will fill in once Yardmaster can read DispatchFinding resources.</p></div>";
       document.getElementById("dispatchObjects").innerHTML =
-        "<div class=\"dispatch-card\"><strong>Waiting for cluster</strong><p>Dispatch findings appear after Yardmaster can read DispatchFinding resources.</p></div>";
+        "<div class=\"dispatch-card\"><strong>Waiting for cluster</strong><p>Dispatch findings appear after Yardmaster can reach the Kubernetes API.</p></div>";
     }
 
     function renderCargo(finding) {
-      return "<button class=\"cargo warning\" type=\"button\" data-finding=\"" + escapeHTML(finding.name) + "\">" + escapeHTML(shortName(finding.subject)) + "</button>";
+      return "<button class=\"cargo\" type=\"button\" data-finding=\"" + escapeHTML(finding.name) + "\">" +
+        "<span class=\"cargo-title\">" + escapeHTML(shortName(finding.subject)) + "</span>" +
+        "<span class=\"cargo-meta\"><span>" + escapeHTML(finding.subjectNamespace || "cluster") + "</span><span>" + escapeHTML(finding.action) + "</span></span>" +
+      "</button>";
     }
 
     function renderFindings(findings) {
       const content = document.getElementById("content");
       if (!findings.length) {
         content.className = "empty";
-        content.textContent = "No active findings.";
+        content.textContent = "No active findings in this view.";
         return;
       }
 
@@ -881,16 +1174,18 @@ const pageHTML = `<!doctype html>
       content.innerHTML = categories.map((category) => {
         const grouped = groups.get(category);
         const title = grouped[0].categoryTitle;
-        return "<section class=\"section\"><h2>" + escapeHTML(title) + "</h2><div class=\"list\">" + grouped.map(renderFinding).join("") + "</div></section>";
+        return "<section class=\"section\">" +
+          "<div class=\"section-head\"><h2>" + escapeHTML(title) + "</h2><span class=\"section-count\">" + grouped.length + " finding(s)</span></div>" +
+          "<div class=\"list\">" + grouped.map(renderFinding).join("") + "</div>" +
+        "</section>";
       }).join("");
     }
 
     function renderFinding(finding) {
       const recs = finding.recommendations || [];
-      const recommendations = recs.length ? "<ul>" + recs.map((rec) => "<li>" + escapeHTML(rec) + "</li>").join("") + "</ul>" : "";
       const detail = finding.detail ? "<p class=\"detail\">" + escapeHTML(finding.detail) + "</p>" : "";
       const related = (finding.related || []).length ?
-        "<div class=\"related\">" + finding.related.map((item) => "<span>" + escapeHTML(item) + "</span>").join("") + "</div>" : "";
+        "<div class=\"related\">" + finding.related.slice(0, 2).map((item) => "<span>" + escapeHTML(item) + "</span>").join("") + "</div>" : "";
       return "<article class=\"finding\" role=\"button\" tabindex=\"0\" data-finding=\"" + escapeHTML(finding.name) + "\">" +
         "<div class=\"finding-head\">" +
           "<div>" +
@@ -901,13 +1196,8 @@ const pageHTML = `<!doctype html>
         "</div>" +
         detail +
         related +
-        recommendations +
+        "<div class=\"chips\"><span class=\"chip\">" + escapeHTML(finding.signal) + "</span><span class=\"chip\">" + escapeHTML(finding.action) + "</span><span class=\"chip\">" + escapeHTML(finding.confidence) + " confidence</span></div>" +
       "</article>";
-    }
-
-    function shortName(subject) {
-      const parts = String(subject || "").split("/");
-      return parts[parts.length - 1] || subject;
     }
 
     function openFinding(name) {
@@ -919,8 +1209,24 @@ const pageHTML = `<!doctype html>
       document.getElementById("drawerMeta").innerHTML = [
         finding.categoryTitle || finding.category,
         finding.severity,
+        finding.action,
+        finding.confidence + " confidence",
         finding.lastSeen ? "last seen " + finding.lastSeen : ""
       ].filter(Boolean).map((item) => "<span>" + escapeHTML(item) + "</span>").join("");
+
+      const metrics = parseTrackDetail(finding.detail || "");
+      const trackSection = document.getElementById("drawerTrackSection");
+      if (finding.category === "tracks") {
+        trackSection.style.display = "block";
+        document.getElementById("drawerTrackGrid").innerHTML =
+          renderDrawerTile(metrics.nodes || "unknown", "nodes") +
+          renderDrawerTile(metrics.cpu || "not reported", "CPU requested") +
+          renderDrawerTile(metrics.memory || "not reported", "memory requested") +
+          renderDrawerTile(metrics.source || "track grouping", "source");
+      } else {
+        trackSection.style.display = "none";
+        document.getElementById("drawerTrackGrid").innerHTML = "";
+      }
 
       const detailSection = document.getElementById("drawerDetailSection");
       detailSection.style.display = finding.detail ? "block" : "none";
@@ -942,11 +1248,78 @@ const pageHTML = `<!doctype html>
       document.getElementById("drawerClose").focus();
     }
 
+    function renderDrawerTile(value, label) {
+      return "<div class=\"drawer-tile\"><strong>" + escapeHTML(value) + "</strong><span>" + escapeHTML(label) + "</span></div>";
+    }
+
     function closeDrawer() {
       const backdrop = document.getElementById("drawerBackdrop");
       backdrop.classList.remove("open");
       backdrop.setAttribute("aria-hidden", "true");
     }
+
+    function filteredFindings() {
+      const search = filterState.search.trim().toLowerCase();
+      return currentFindings.filter((finding) => {
+        if (filterState.namespace !== "all" && finding.subjectNamespace !== filterState.namespace) return false;
+        if (filterState.category !== "all" && finding.category !== filterState.category) return false;
+        if (filterState.severity !== "all" && finding.severity !== filterState.severity) return false;
+        if (!search) return true;
+        const haystack = [
+          finding.subject,
+          finding.subjectKind,
+          finding.subjectNamespace,
+          finding.subjectName,
+          finding.summary,
+          finding.detail,
+          finding.action,
+          finding.signal,
+          (finding.related || []).join(" "),
+          (finding.recommendations || []).join(" ")
+        ].join(" ").toLowerCase();
+        return haystack.includes(search);
+      });
+    }
+
+    function parseTrackDetail(detail) {
+      const sourceMatch = detail.match(/Grouped by ([^.]+)\./);
+      const cpuMatch = detail.match(/CPU requested ([^;]+);/);
+      const memMatch = detail.match(/memory requested ([^.]+)\./);
+      const nodesMatch = detail.match(/Nodes: ([^.]+)\./);
+      return {
+        source: sourceMatch ? sourceMatch[1] : "",
+        cpu: cpuMatch ? cpuMatch[1] : "",
+        memory: memMatch ? memMatch[1] : "",
+        nodes: nodesMatch ? nodesMatch[1].split(",").filter(Boolean).length : ""
+      };
+    }
+
+    function countBy(findings, key, value) {
+      return findings.filter((finding) => finding[key] === value).length;
+    }
+
+    function shortName(subject) {
+      const parts = String(subject || "").split("/");
+      return parts[parts.length - 1] || subject;
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, Number(value) || 0));
+    }
+
+    document.addEventListener("input", (event) => {
+      if (event.target.id === "search") {
+        filterState.search = event.target.value;
+        renderAll();
+      }
+    });
+
+    document.addEventListener("change", (event) => {
+      if (event.target.id === "namespaceFilter") filterState.namespace = event.target.value;
+      if (event.target.id === "categoryFilter") filterState.category = event.target.value;
+      if (event.target.id === "severityFilter") filterState.severity = event.target.value;
+      renderAll();
+    });
 
     document.addEventListener("click", (event) => {
       const close = event.target.closest("#drawerClose");
