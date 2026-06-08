@@ -23,13 +23,21 @@ Yardmaster is advisory by design. It does not provision nodes, mutate workloads,
 
 ## Dashboard Preview
 
-![Yardmaster dashboard showing Busynow capacity findings](docs/images/dashboard-yard.png)
+![Yardmaster dashboard overview showing yard health, dispatch, request coverage, and tracks](docs/images/dashboard-overview.png)
 
-The Yard view maps cluster capacity into Tracks, Cargo, and Dispatch so operators can quickly see capacity shape and active findings.
+The dashboard opens with an operator view of the cluster: yard health, dispatch blockers, request coverage, track count, filters, and the current capacity yard.
 
-![Yardmaster detail drawer showing a workload request finding](docs/images/dashboard-detail-drawer.png)
+![Yardmaster yard view showing EKS and Karpenter tracks](docs/images/dashboard-yard-and-filters.png)
 
-The detail drawer keeps the operator path concrete: workload owner, related pod, reason, and recommendations in one place.
+The Yard view maps cluster capacity into Tracks, Cargo, and Dispatch so operators can see where workloads are landing and which capacity groups are carrying risk.
+
+![Yardmaster detail drawer showing a workload request finding](docs/images/dashboard-request-detail.png)
+
+The detail drawer keeps the operator path concrete: workload owner, related pod, reason, recommendations, and confidence in one place.
+
+![Yardmaster detail drawer showing a Karpenter NodePool track](docs/images/dashboard-karpenter-detail.png)
+
+Karpenter-aware Track details expose NodePool readiness, limits, requirements, taints, disruption policy, and NodeClaim state beside the workloads using that capacity path.
 
 ## What It Does
 
@@ -41,6 +49,7 @@ It can:
 - identify containers missing CPU or memory requests
 - group ready nodes into capacity Tracks using common node pool labels
 - summarize requested versus allocatable CPU and memory by Track
+- read Karpenter NodePools and NodeClaims to expose elastic capacity policy as Track findings
 - resolve pod findings back to owner workloads such as Deployments, StatefulSets, DaemonSets, Jobs, and CronJobs
 - write findings as `DispatchFinding` custom resources
 - show findings in the CLI and dashboard as Yard, Track, Cargo, and Dispatch objects
