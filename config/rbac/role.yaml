@@ -42,6 +42,15 @@ rules:
       - list
       - watch
   - apiGroups:
+      - karpenter.sh
+    resources:
+      - nodepools
+      - nodeclaims
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
       - yardmaster.dev
     resources:
       - dispatchfindings

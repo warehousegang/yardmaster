@@ -1287,11 +1287,12 @@ const pageHTML = `<!doctype html>
       const cpuMatch = detail.match(/CPU requested ([^;]+);/);
       const memMatch = detail.match(/memory requested ([^.]+)\./);
       const nodesMatch = detail.match(/Nodes: ([^.]+)\./);
+      const nodesText = nodesMatch ? nodesMatch[1].trim() : "";
       return {
         source: sourceMatch ? sourceMatch[1] : "",
         cpu: cpuMatch ? cpuMatch[1] : "",
         memory: memMatch ? memMatch[1] : "",
-        nodes: nodesMatch ? nodesMatch[1].split(",").filter(Boolean).length : ""
+        nodes: nodesText && nodesText !== "none" ? nodesText.split(",").filter(Boolean).length : "0"
       };
     }
 
