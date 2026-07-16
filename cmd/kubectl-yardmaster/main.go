@@ -17,6 +17,7 @@ import (
 
 	yardv1alpha1 "github.com/warehousegang/yardmaster/api/v1alpha1"
 	yardcontroller "github.com/warehousegang/yardmaster/internal/controller"
+	yardpresentation "github.com/warehousegang/yardmaster/internal/presentation"
 )
 
 func main() {
@@ -105,7 +106,7 @@ func printReport(namespace string, findings []yardv1alpha1.DispatchFinding) {
 			fmt.Printf("           Reason: %s\n", finding.Spec.Detail)
 		}
 		for _, related := range finding.Spec.Related {
-			fmt.Printf("           Related: %s\n", yardv1alpha1.SubjectLabel(related))
+			fmt.Printf("           Related: %s\n", yardpresentation.SubjectLabel(related))
 		}
 		for _, recommendation := range finding.Spec.Recommendations {
 			fmt.Printf("           Recommendation: %s\n", recommendation)
@@ -115,7 +116,7 @@ func printReport(namespace string, findings []yardv1alpha1.DispatchFinding) {
 }
 
 func subjectLabel(finding yardv1alpha1.DispatchFinding) string {
-	return yardv1alpha1.SubjectLabel(finding.Spec.Subject)
+	return yardpresentation.SubjectLabel(finding.Spec.Subject)
 }
 
 func categoryTitle(category string) string {

@@ -1,8 +1,6 @@
 package v1alpha1
 
 import (
-	"strings"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -16,20 +14,28 @@ const (
 )
 
 type DispatchFindingSubject struct {
+	// +required
 	APIVersion string `json:"apiVersion"`
-	Kind       string `json:"kind"`
-	Namespace  string `json:"namespace,omitempty"`
-	Name       string `json:"name"`
+	// +required
+	Kind      string `json:"kind"`
+	Namespace string `json:"namespace,omitempty"`
+	// +required
+	Name string `json:"name"`
 }
 
 type DispatchFindingSpec struct {
-	Severity        FindingSeverity          `json:"severity"`
-	Category        string                   `json:"category"`
-	Subject         DispatchFindingSubject   `json:"subject"`
-	Related         []DispatchFindingSubject `json:"related,omitempty"`
-	Summary         string                   `json:"summary"`
-	Detail          string                   `json:"detail,omitempty"`
-	Recommendations []string                 `json:"recommendations,omitempty"`
+	// +kubebuilder:validation:Enum=info;warning;critical
+	// +required
+	Severity FindingSeverity `json:"severity"`
+	// +required
+	Category string `json:"category"`
+	// +required
+	Subject DispatchFindingSubject   `json:"subject"`
+	Related []DispatchFindingSubject `json:"related,omitempty"`
+	// +required
+	Summary         string   `json:"summary"`
+	Detail          string   `json:"detail,omitempty"`
+	Recommendations []string `json:"recommendations,omitempty"`
 }
 
 type DispatchFindingStatus struct {
@@ -37,6 +43,13 @@ type DispatchFindingStatus struct {
 	LastSeen  metav1.Time `json:"lastSeen,omitempty"`
 }
 
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:scope=Namespaced,shortName=df
+// +kubebuilder:printcolumn:name="Severity",type=string,JSONPath=".spec.severity"
+// +kubebuilder:printcolumn:name="Category",type=string,JSONPath=".spec.category"
+// +kubebuilder:printcolumn:name="Subject",type=string,JSONPath=".spec.subject.name"
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=".metadata.creationTimestamp"
 type DispatchFinding struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -45,6 +58,7 @@ type DispatchFinding struct {
 	Status DispatchFindingStatus `json:"status,omitempty"`
 }
 
+// +kubebuilder:object:root=true
 type DispatchFindingList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
@@ -59,15 +73,4 @@ func SubjectFromPod(pod *corev1.Pod) DispatchFindingSubject {
 		Namespace:  pod.Namespace,
 		Name:       pod.Name,
 	}
-}
-
-func SubjectLabel(subject DispatchFindingSubject) string {
-	kind := strings.ToLower(subject.Kind)
-	if kind == "" {
-		kind = "object"
-	}
-	if subject.Namespace == "" {
-		return kind + "/" + subject.Name
-	}
-	return kind + "/" + subject.Namespace + "/" + subject.Name
 }

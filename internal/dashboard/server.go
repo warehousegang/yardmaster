@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	yardv1alpha1 "github.com/warehousegang/yardmaster/api/v1alpha1"
+	yardpresentation "github.com/warehousegang/yardmaster/internal/presentation"
 )
 
 type Server struct {
@@ -202,7 +203,7 @@ func (s *Server) fetchFindings(ctx context.Context) (FindingsResponse, error) {
 }
 
 func subjectLabel(finding yardv1alpha1.DispatchFinding) string {
-	return yardv1alpha1.SubjectLabel(finding.Spec.Subject)
+	return yardpresentation.SubjectLabel(finding.Spec.Subject)
 }
 
 func relatedLabels(subjects []yardv1alpha1.DispatchFindingSubject) []string {
@@ -211,7 +212,7 @@ func relatedLabels(subjects []yardv1alpha1.DispatchFindingSubject) []string {
 	}
 	labels := make([]string, 0, len(subjects))
 	for _, subject := range subjects {
-		labels = append(labels, yardv1alpha1.SubjectLabel(subject))
+		labels = append(labels, yardpresentation.SubjectLabel(subject))
 	}
 	return labels
 }

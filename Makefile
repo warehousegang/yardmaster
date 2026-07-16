@@ -5,6 +5,16 @@ KIND_CLUSTER ?= yardmaster
 YARDMASTER ?= $(BINARY_DIR)/yardmaster
 KUBECTL_PLUGIN ?= $(BINARY_DIR)/kubectl-yardmaster
 DASHBOARD ?= $(BINARY_DIR)/yardmaster-dashboard
+CONTROLLER_TOOLS_VERSION ?= v0.18.0
+CONTROLLER_GEN ?= go run sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
+
+.PHONY: generate
+generate:
+	$(CONTROLLER_GEN) object paths="./api/..."
+
+.PHONY: manifests
+manifests:
+	$(CONTROLLER_GEN) crd:maxDescLen=0 paths="./api/..." output:crd:artifacts:config=config/crd
 
 .PHONY: build
 build:
