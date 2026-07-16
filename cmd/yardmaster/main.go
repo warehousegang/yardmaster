@@ -60,7 +60,6 @@ func main() {
 
 	if err := (&yardcontroller.PendingPodReconciler{
 		Client:           mgr.GetClient(),
-		Scheme:           mgr.GetScheme(),
 		FindingNamespace: findingNamespace,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create pending pod controller")
@@ -69,7 +68,6 @@ func main() {
 
 	if err := (&yardcontroller.RequestCoverageReconciler{
 		Client:            mgr.GetClient(),
-		Scheme:            mgr.GetScheme(),
 		FindingNamespace:  findingNamespace,
 		IgnoredNamespaces: namespaceSet(ignoredRequestNamespaces),
 	}).SetupWithManager(mgr); err != nil {
@@ -79,7 +77,6 @@ func main() {
 
 	if err := (&yardcontroller.TrackSummaryReconciler{
 		Client:           mgr.GetClient(),
-		Scheme:           mgr.GetScheme(),
 		FindingNamespace: findingNamespace,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create track summary controller")

@@ -141,6 +141,10 @@ On resolution:
 Updates use `RetryOnConflict` because Kubernetes objects use optimistic
 concurrency.
 
+Common create, update, status, label, and delete behavior lives in
+`internal/controller/finding_store.go`. This keeps lifecycle behavior consistent
+without hiding controller-specific naming and stale-finding decisions.
+
 ## Adding A Controller
 
 When adding another controller:
@@ -155,4 +159,6 @@ When adding another controller:
 7. Document watched resources, output category, and failure behavior here.
 
 Before considering the controller complete, verify create, update, no-op,
-resolution, deletion, retry, and restart behavior.
+resolution, deletion, retry, and restart behavior. The current reconciler tests
+use controller-runtime's fake client; higher-fidelity `envtest` and end-to-end
+coverage remain useful future layers.

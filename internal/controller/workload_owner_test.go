@@ -8,9 +8,6 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	yardv1alpha1 "github.com/warehousegang/yardmaster/api/v1alpha1"
@@ -119,14 +116,6 @@ func TestWorkloadSubjectForPodUsesDirectWorkloadOwner(t *testing.T) {
 		Namespace:  "default",
 		Name:       "database",
 	})
-}
-
-func testScheme() *runtime.Scheme {
-	scheme := runtime.NewScheme()
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(appsv1.AddToScheme(scheme))
-	utilruntime.Must(batchv1.AddToScheme(scheme))
-	return scheme
 }
 
 func assertSubject(t *testing.T, got, want yardv1alpha1.DispatchFindingSubject) {

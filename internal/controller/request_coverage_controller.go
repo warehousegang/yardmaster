@@ -8,21 +8,16 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	yardv1alpha1 "github.com/warehousegang/yardmaster/api/v1alpha1"
 	"github.com/warehousegang/yardmaster/internal/analyzer"
 )
 
 type RequestCoverageReconciler struct {
 	client.Client
-	Scheme            *runtime.Scheme
 	FindingNamespace  string
 	IgnoredNamespaces map[string]struct{}
 	Analyzer          *analyzer.RequestCoverageAnalyzer
@@ -81,54 +76,7 @@ func (r *RequestCoverageReconciler) ignoresNamespace(namespace string) bool {
 
 func (r *RequestCoverageReconciler) upsertFinding(ctx context.Context, pod *corev1.Pod, draft *analyzer.FindingDraft) error {
 	name := requestFindingNameForPod(pod.Namespace, pod.Name)
-	key := types.NamespacedName{Namespace: r.FindingNamespace, Name: name}
-
-	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		now := metav1.Now()
-		var current yardv1alpha1.DispatchFinding
-		err := r.Get(ctx, key, &current)
-		if apierrors.IsNotFound(err) {
-			finding := yardv1alpha1.DispatchFinding{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: yardv1alpha1.GroupVersion.String(),
-					Kind:       "DispatchFinding",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: r.FindingNamespace,
-					Labels: map[string]string{
-						"yardmaster.dev/category": "requests",
-						"yardmaster.dev/subject":  sanitizeDNSLabel(draft.Spec.Subject.Kind),
-					},
-				},
-				Spec: draft.Spec,
-			}
-			if err := r.Create(ctx, &finding); err != nil {
-				return err
-			}
-			finding.Status.FirstSeen = now
-			finding.Status.LastSeen = now
-			return r.Status().Update(ctx, &finding)
-		}
-		if err != nil {
-			return err
-		}
-
-		current.Spec = draft.Spec
-		if current.Labels == nil {
-			current.Labels = make(map[string]string)
-		}
-		current.Labels["yardmaster.dev/category"] = "requests"
-		current.Labels["yardmaster.dev/subject"] = sanitizeDNSLabel(draft.Spec.Subject.Kind)
-		if err := r.Update(ctx, &current); err != nil {
-			return err
-		}
-		current.Status.LastSeen = now
-		if current.Status.FirstSeen.IsZero() {
-			current.Status.FirstSeen = now
-		}
-		return r.Status().Update(ctx, &current)
-	})
+	return upsertDispatchFinding(ctx, r.Client, r.FindingNamespace, name, "requests", draft.Spec)
 }
 
 func (r *RequestCoverageReconciler) deleteFinding(ctx context.Context, podNamespace, podName string) error {
@@ -136,14 +84,7 @@ func (r *RequestCoverageReconciler) deleteFinding(ctx context.Context, podNamesp
 		Namespace: r.FindingNamespace,
 		Name:      requestFindingNameForPod(podNamespace, podName),
 	}
-	var finding yardv1alpha1.DispatchFinding
-	if err := r.Get(ctx, key, &finding); err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil
-		}
-		return err
-	}
-	return r.Delete(ctx, &finding)
+	return deleteDispatchFinding(ctx, r.Client, key)
 }
 
 func requestFindingNameForPod(namespace, name string) string {

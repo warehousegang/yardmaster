@@ -48,8 +48,7 @@ api/v1alpha1/          DispatchFinding Kubernetes API definitions
 cmd/                   Program entrypoints and assembly
 internal/analyzer/     Pure analysis and finding construction
 internal/controller/   Watches, reconciliation, Kubernetes reads and writes
-internal/dashboard/    Dashboard HTTP server and presentation
-internal/model/        Shared internal data structures
+internal/dashboard/    Dashboard HTTP server, finding views, and page assets
 internal/presentation/ Shared human-readable formatting
 config/                CRD, RBAC, Deployment, Service, and sample manifests
 docs/                  Developer and operator documentation
@@ -78,6 +77,10 @@ Controllers own Kubernetes behavior:
 - create, update, or delete findings
 - update status
 - arrange watches and requeues
+
+The controllers share `internal/controller/finding_store.go` for
+`DispatchFinding` creation, updates, status timestamps, labels, and deletion.
+Individual reconcilers retain ownership of finding names and cleanup rules.
 
 Analyzers own decision logic:
 

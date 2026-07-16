@@ -39,8 +39,7 @@ config/               Kubernetes manifests and Kustomize files
 docs/                 Developer and operator guides
 internal/analyzer/    Deterministic analysis logic
 internal/controller/  Reconciliation and Kubernetes API behavior
-internal/dashboard/   Dashboard server
-internal/model/       Shared internal data
+internal/dashboard/   Dashboard server, finding views, page, and assets
 internal/presentation/Shared formatting
 ```
 
@@ -116,12 +115,15 @@ This target:
 
 ## Testing Strategy
 
-The current test suite focuses on pure logic:
+The current test suite covers:
 
 - pending Pod explanations
 - request coverage detection
 - Track grouping and accounting
 - workload owner resolution
+- reconciler create, update, resolution, source deletion, and stale cleanup
+- Karpenter NodePool and NodeClaim reading
+- dashboard sorting, counts, HTTP handlers, and Kubernetes read failures
 - presentation formatting
 
 Run one package:
@@ -142,9 +144,9 @@ Run everything:
 go test ./...
 ```
 
-Controller integration tests and end-to-end tests are future coverage areas.
-When adding Kubernetes write behavior, test reconciliation and cleanup as well
-as the analyzer result.
+The reconciler tests use controller-runtime's fake client. `envtest` integration
+tests with a real API server and full end-to-end tests in kind are still future
+coverage areas.
 
 ## Changing The API
 

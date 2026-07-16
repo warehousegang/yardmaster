@@ -10,12 +10,9 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -28,7 +25,6 @@ import (
 
 type TrackSummaryReconciler struct {
 	client.Client
-	Scheme           *runtime.Scheme
 	FindingNamespace string
 	Analyzer         *analyzer.TrackSummaryAnalyzer
 }
@@ -102,7 +98,11 @@ func (r *TrackSummaryReconciler) karpenterTrackFindings(ctx context.Context) ([]
 		return nil, err
 	}
 
-	claimsByPool := karpenterClaimsByPool(nodeClaims.Items)
+	var nodeClaimItems []unstructured.Unstructured
+	if nodeClaims != nil {
+		nodeClaimItems = nodeClaims.Items
+	}
+	claimsByPool := karpenterClaimsByPool(nodeClaimItems)
 	findings := make([]analyzer.TrackFindingDraft, 0, len(nodePools.Items))
 	for _, nodePool := range nodePools.Items {
 		name := nodePool.GetName()
@@ -183,54 +183,12 @@ func trackSummaryRequest(_ context.Context, _ client.Object) []reconcile.Request
 }
 
 func (r *TrackSummaryReconciler) upsertFinding(ctx context.Context, name string, draft analyzer.TrackFindingDraft) error {
-	key := types.NamespacedName{Namespace: r.FindingNamespace, Name: name}
-
-	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		now := metav1.Now()
-		var current yardv1alpha1.DispatchFinding
-		err := r.Get(ctx, key, &current)
-		if apierrors.IsNotFound(err) {
-			finding := yardv1alpha1.DispatchFinding{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: yardv1alpha1.GroupVersion.String(),
-					Kind:       "DispatchFinding",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: r.FindingNamespace,
-					Labels: map[string]string{
-						"yardmaster.dev/category": "tracks",
-						"yardmaster.dev/subject":  "track",
-					},
-				},
-				Spec: draft.Spec,
-			}
-			if err := r.Create(ctx, &finding); err != nil {
-				return err
-			}
-			finding.Status.FirstSeen = now
-			finding.Status.LastSeen = now
-			return r.Status().Update(ctx, &finding)
-		}
-		if err != nil {
-			return err
-		}
-
-		current.Spec = draft.Spec
-		if err := r.Update(ctx, &current); err != nil {
-			return err
-		}
-		current.Status.LastSeen = now
-		if current.Status.FirstSeen.IsZero() {
-			current.Status.FirstSeen = now
-		}
-		return r.Status().Update(ctx, &current)
-	})
+	return upsertDispatchFinding(ctx, r.Client, r.FindingNamespace, name, "tracks", draft.Spec)
 }
 
 func (r *TrackSummaryReconciler) deleteStaleFindings(ctx context.Context, expected map[string]struct{}) error {
 	var existing yardv1alpha1.DispatchFindingList
-	if err := r.List(ctx, &existing, client.InNamespace(r.FindingNamespace), client.MatchingLabels{"yardmaster.dev/category": "tracks"}); err != nil {
+	if err := r.List(ctx, &existing, client.InNamespace(r.FindingNamespace), client.MatchingLabels{findingCategoryLabel: "tracks"}); err != nil {
 		return err
 	}
 	for _, finding := range existing.Items {
