@@ -16,8 +16,7 @@ This guide covers the normal workflow for changing and testing Yardmaster.
 
 ```bash
 go mod download
-make test
-make build
+make verify
 ```
 
 `make build` creates:
@@ -48,11 +47,15 @@ internal/presentation/Shared formatting
 | Command | Purpose |
 | --- | --- |
 | `make fmt` | Format Go files. |
+| `make fmt-check` | Check Go formatting without changing files. |
 | `make test` | Run all Go tests. |
+| `make vet` | Run Go's static analysis checks. |
 | `make build` | Build all three executables. |
+| `make verify` | Run formatting, generation, vet, tests, builds, and manifest checks. |
 | `make generate` | Regenerate DeepCopy methods. |
 | `make manifests` | Regenerate the CRD manifest. |
 | `make docker-build` | Build the container image. |
+| `make render-deploy IMG=...` | Render the complete deployment with a selected image. |
 | `make run` | Run the operator against the current kubeconfig context. |
 | `make report` | Print findings through the CLI. |
 | `make dashboard` | Run the dashboard locally. |
@@ -186,12 +189,7 @@ For a rule that can be decided from supplied objects:
 
 ```bash
 make fmt
-make generate
-make manifests
-go test ./...
-go build ./cmd/...
-kubectl kustomize config/default >/dev/null
-git diff --check
+make verify
 ```
 
 Also inspect `git diff` for accidental generated-file drift, binary files, local

@@ -7,6 +7,8 @@ KUBECTL_PLUGIN ?= $(BINARY_DIR)/kubectl-yardmaster
 DASHBOARD ?= $(BINARY_DIR)/yardmaster-dashboard
 CONTROLLER_TOOLS_VERSION ?= v0.18.0
 CONTROLLER_GEN ?= go run sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
+DEPLOY_OVERLAY ?= tmp/deploy
+DEPLOY_KUSTOMIZATION ?= $(DEPLOY_OVERLAY)/kustomization.yaml
 
 .PHONY: generate
 generate:
@@ -31,21 +33,79 @@ docker-build:
 test:
 	go test ./...
 
+.PHONY: vet
+vet:
+	go vet ./...
+
 .PHONY: fmt
 fmt:
 	gofmt -w $$(find . -name '*.go')
+
+.PHONY: fmt-check
+fmt-check:
+	@test -z "$$(gofmt -l $$(find . -name '*.go'))" || \
+		(echo "Run 'make fmt' to format these files:"; gofmt -l $$(find . -name '*.go'); exit 1)
+
+.PHONY: kustomize-check
+kustomize-check:
+	kubectl kustomize config/default >/dev/null
+
+.PHONY: generated-check
+generated-check: generate manifests
+	git diff --exit-code -- api/v1alpha1/zz_generated.deepcopy.go config/crd/yardmaster.dev_dispatchfindings.yaml
+
+.PHONY: verify
+verify: fmt-check generated-check vet test build kustomize-check
+	git diff --check
 
 .PHONY: install
 install:
 	kubectl apply -k config/crd
 	kubectl apply -k config/rbac
 
+.PHONY: deploy-overlay
+deploy-overlay:
+	@mkdir -p $(DEPLOY_OVERLAY)
+	@image='$(IMG)'; \
+	case "$$image" in \
+		*@*) \
+			image_name=$${image%@*}; \
+			image_digest=$${image#*@}; \
+			printf '%s\n' \
+				'apiVersion: kustomize.config.k8s.io/v1beta1' \
+				'kind: Kustomization' \
+				'resources:' \
+				'  - ../../config/default' \
+				'images:' \
+				'  - name: yardmaster' \
+				"    newName: $$image_name" \
+				"    digest: $$image_digest" > $(DEPLOY_KUSTOMIZATION); \
+			;; \
+		*) \
+			image_tail=$${image##*/}; \
+			case "$$image_tail" in \
+				*:*) image_name=$${image%:*}; image_tag=$${image##*:} ;; \
+				*) image_name=$$image; image_tag=latest ;; \
+			esac; \
+			printf '%s\n' \
+				'apiVersion: kustomize.config.k8s.io/v1beta1' \
+				'kind: Kustomization' \
+				'resources:' \
+				'  - ../../config/default' \
+				'images:' \
+				'  - name: yardmaster' \
+				"    newName: $$image_name" \
+				"    newTag: $$image_tag" > $(DEPLOY_KUSTOMIZATION); \
+			;; \
+	esac
+
+.PHONY: render-deploy
+render-deploy: deploy-overlay
+	kubectl kustomize --load-restrictor=LoadRestrictionsNone $(DEPLOY_OVERLAY)
+
 .PHONY: deploy
-deploy: install
-	kubectl apply -k config/manager
-	kubectl set image deployment/yardmaster manager=$(IMG) -n $(FINDING_NAMESPACE)
-	kubectl apply -k config/dashboard
-	kubectl set image deployment/yardmaster-dashboard dashboard=$(IMG) -n $(FINDING_NAMESPACE)
+deploy: deploy-overlay
+	kubectl kustomize --load-restrictor=LoadRestrictionsNone $(DEPLOY_OVERLAY) | kubectl apply -f -
 
 .PHONY: undeploy
 undeploy:

@@ -1,4 +1,15 @@
+.DS_Store
 .git/
+.github/
 .idea/
+.vscode/
 bin/
+coverage/
+docs/
 tmp/
+*.coverprofile
+*.log
+*.out
+*.test
+*.tmp
+**/*_test.go

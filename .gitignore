@@ -1,2 +1,12 @@
+.DS_Store
 .idea/
+.vscode/
 bin/
+tmp/
+coverage/
+coverage.out
+*.coverprofile
+*.log
+*.out
+*.test
+*.tmp

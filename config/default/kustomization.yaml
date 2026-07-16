@@ -5,3 +5,7 @@ resources:
   - ../rbac
   - ../manager
   - ../dashboard
+images:
+  - name: yardmaster
+    newName: yardmaster
+    newTag: dev

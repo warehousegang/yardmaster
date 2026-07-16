@@ -244,9 +244,11 @@ Required tools:
 Run tests and build:
 
 ```bash
-make test
-make build
+make verify
 ```
+
+`make verify` checks formatting, generated API artifacts, vet, tests, builds, and
+the default Kustomize configuration.
 
 Run a self-contained local smoke test:
 
@@ -279,6 +281,12 @@ Deploy:
 
 ```bash
 make deploy IMG=<registry>/yardmaster:<tag>
+```
+
+For an immutable deployment, `IMG` may also use a digest:
+
+```bash
+make deploy IMG=<registry>/yardmaster@sha256:<digest>
 ```
 
 Wait for rollout:

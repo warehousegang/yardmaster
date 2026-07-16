@@ -37,8 +37,21 @@ Deploy:
 make deploy IMG=<registry>/yardmaster:<tag>
 ```
 
-The Make target installs CRD and RBAC, applies both Deployments, and replaces
-their image with `IMG`.
+For an immutable image reference:
+
+```bash
+make deploy IMG=<registry>/yardmaster@sha256:<digest>
+```
+
+The Make target generates an ignored Kustomize overlay under `tmp/deploy`,
+applies `IMG` through Kustomize's image transformer, and applies the complete
+default installation. It does not edit tracked manifests.
+
+Inspect exactly what would be applied:
+
+```bash
+make render-deploy IMG=<registry>/yardmaster:<tag>
+```
 
 Do not use the demo or sample targets against a real cluster.
 
@@ -204,6 +217,10 @@ For API-compatible code changes:
 3. update both Deployment images
 4. monitor rollout and controller logs
 5. inspect findings for unexpected churn
+
+The Dockerfile pins both build and runtime base images by multi-architecture
+digest. Updating a base image is an intentional source change: inspect the new
+registry digest, update the Dockerfile, rebuild, and run `make verify`.
 
 For CRD schema changes, generate and review the CRD first:
 
