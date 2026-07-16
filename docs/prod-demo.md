@@ -71,6 +71,8 @@ kubectl get dispatchfindings -n yardmaster-system -o yaml
 - Flags active pods with missing or zero CPU/memory requests.
 - Groups ready nodes into Tracks using common node pool labels.
 - Summarizes requested vs allocatable CPU and memory by Track.
+- Reads Karpenter `NodePool` and `NodeClaim` resources when their CRDs are
+  installed.
 - Shows findings in a local dashboard as Yard, Track, Cargo, and Dispatch objects.
 
 ## Current Limits
@@ -78,5 +80,5 @@ kubectl get dispatchfindings -n yardmaster-system -o yaml
 - No workload mutation.
 - No node provisioning.
 - No cloud-provider calls.
-- No Karpenter `NodePool` or `NodeClaim` API integration yet.
+- Karpenter integration is read-only and does not change NodePools or NodeClaims.
 - Dashboard is intended for local port-forward access, not public exposure.

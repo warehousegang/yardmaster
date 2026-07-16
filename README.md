@@ -119,6 +119,15 @@ DispatchFinding CRDs
 
 The controller watches core Kubernetes resources and periodically reconciles findings. Findings live in the `yardmaster-system` namespace by default.
 
+## Documentation
+
+- [Architecture](docs/architecture.md)
+- [Controllers](docs/controllers.md)
+- [DispatchFinding API](docs/dispatchfinding.md)
+- [Development guide](docs/development.md)
+- [Operations guide](docs/operations.md)
+- [Production demo](docs/prod-demo.md)
+
 ## DispatchFinding
 
 `DispatchFinding` is the main Yardmaster API object. It represents one scheduling, capacity, or workload-configuration finding.
@@ -303,9 +312,14 @@ Yardmaster is an interpretation layer around capacity and scheduling state. It e
 
 The two tools are complementary. Karpenter changes capacity. Yardmaster explains capacity decisions.
 
+Current Karpenter-aware support includes:
+
+- reading `NodePool` and `NodeClaim` resources through `karpenter.sh/v1` or `v1beta1`
+- reporting NodePool readiness, limits, requirements, taints, and disruption policy
+- counting NodeClaims associated with each NodePool
+
 Future Karpenter-aware work includes:
 
-- reading `NodePool` and `NodeClaim` resources
 - explaining Karpenter provisioning failures
 - detecting conflicts between workload constraints and NodePool requirements
 - recommending NodePool or workload changes
