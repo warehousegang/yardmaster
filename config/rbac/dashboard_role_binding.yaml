@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: yardmaster-dashboard
+  namespace: yardmaster-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: yardmaster-dashboard
+subjects:
+  - kind: ServiceAccount
+    name: yardmaster-dashboard
+    namespace: yardmaster-system

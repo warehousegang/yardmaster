@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: yardmaster-dashboard
+  namespace: yardmaster-system
+rules:
+  - apiGroups:
+      - yardmaster.dev
+    resources:
+      - dispatchfindings
+    verbs:
+      - list

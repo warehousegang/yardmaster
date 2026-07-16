@@ -13,7 +13,7 @@ spec:
       labels:
         app.kubernetes.io/name: yardmaster-dashboard
     spec:
-      serviceAccountName: yardmaster
+      serviceAccountName: yardmaster-dashboard
       containers:
         - name: dashboard
           image: yardmaster:dev

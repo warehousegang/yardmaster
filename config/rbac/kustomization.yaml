@@ -3,5 +3,8 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - service_account.yaml
+  - dashboard_service_account.yaml
   - role.yaml
   - role_binding.yaml
+  - dashboard_role.yaml
+  - dashboard_role_binding.yaml
