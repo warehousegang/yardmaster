@@ -1,5 +1,5 @@
 package v1alpha1
-
+// found at https://pkg.go.dev/k8s.io
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
